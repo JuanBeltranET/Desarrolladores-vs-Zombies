@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -8,7 +8,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Media;
 
-namespace Project1
+namespace Project2
 {
     public class Game1 : Game
     {
@@ -27,8 +27,10 @@ namespace Project1
         private Texture2D pistola;//0000f8
         private Texture2D gameover;
         private Texture2D Items;
+        private Texture2D boost;
+        private Texture2D boostatk;
         // private Texture2D inventario;
-        // Imagenes del menu
+        // Imagenes del menu //
         private Texture2D fondoMenu;
         private Texture2D botonJugar;
         private Texture2D exitGame;
@@ -37,6 +39,9 @@ namespace Project1
         private Texture2D tecladoX;
         private Texture2D tecladoC;
         private Texture2D teclado1;
+        private Texture2D teclado2;
+        private Texture2D tecladoEspacio;
+        private Texture2D arma;
         private Texture2D correr;
         private Texture2D inventario;
         private Texture2D atacar;
@@ -132,31 +137,19 @@ namespace Project1
 
             // CARGAR IMAGENES DEL JUEGO
             zombie = Content.Load<Texture2D>("imagenes/Zombie");
-
             superviviente = Content.Load<Texture2D>("imagenes/FiolinaSprite");
-
             background = Content.Load<Texture2D>("imagenes/Background");
-
             Zombiesas = Content.Load<Texture2D>("imagenes/ZombieSalvaje");
-
             ZombieTank = Content.Load<Texture2D>("imagenes/ZombieTanque");
-
             barraVIDA = Content.Load<Texture2D>("imagenes/HealthBar");
-
             barraST = Content.Load<Texture2D>("imagenes/StaminaMeter");
-
             Items = Content.Load<Texture2D>("imagenes/Items");
-            // inventario = Content.Load<Texture2D>("imagenes/Inventario");
-
-            pistola = Content.Load<Texture2D>("imagenes/Arma");
-
+            boost = Content.Load<Texture2D>("imagenes/boost");
+            boostatk = Content.Load<Texture2D>("imagenes/boostatk");
             gameover = Content.Load<Texture2D>("imagenes/GameOver");
-
             // CARGAR IMAGENES DEL MENU
             fondoMenu = Content.Load<Texture2D>("imagenes/FondoMenu");
-
             botonJugar = Content.Load<Texture2D>("imagenes/seleccionar");
-
             // Cada fotograma ocupa un cuadro del ancho de la textura; hay espacio entre ambos.
             int altoFrameBotonJugar = botonJugar.Width;
             spriteBotonJugarHover = new Rectangle(
@@ -193,15 +186,18 @@ namespace Project1
             tecladoX = Content.Load<Texture2D>("imagenes/tecladoX");
             tecladoC = Content.Load<Texture2D>("imagenes/tecladoC");
             teclado1 = Content.Load<Texture2D>("imagenes/teclado1");
-            correr = Content.Load<Texture2D>("imagenes/correr");
-            inventario = Content.Load<Texture2D>("imagenes/inventario");
-            atacar = Content.Load<Texture2D>("imagenes/atacar");
+            teclado2 = Content.Load<Texture2D>("imagenes/teclado2");
+            tecladoEspacio = Content.Load<Texture2D>("imagenes/tecladoEspacio");
+            arma = Content.Load<Texture2D>("imagenes/arma");
+            correr = Content.Load<Texture2D>("imagenes/correr"); // FFED1C24
+            inventario = Content.Load<Texture2D>("imagenes/inventario"); // FFED1C24
+            atacar = Content.Load<Texture2D>("imagenes/atacar"); // FFED1C24
 
             // MUSICA
             backgroundMusic = Content.Load<Song>("musica/04. Grasswalk");
             MusicaMenu = Content.Load<Song>("musica/MusicaMenu");
 
-            MediaPlayer.IsRepeating = true;
+            MediaPlayer.IsRepeating = false;
 
             MediaPlayer.Play(MusicaMenu);
 
@@ -315,6 +311,7 @@ namespace Project1
                     else if (rectBotonJugar.Contains(mouseActual.Position))
                     {
                         estadoActual = EstadoJuego.Jugando;
+                        MediaPlayer.IsRepeating = true;
                         MediaPlayer.Play(backgroundMusic);
 
                         ReiniciarPosiciones();
@@ -365,6 +362,7 @@ namespace Project1
                 tecladoAnterior.IsKeyUp(Keys.Back))
             {
                 estadoActual = EstadoJuego.Menu;
+                MediaPlayer.IsRepeating = false;
                 MediaPlayer.Play(MusicaMenu);
 
                 ReiniciarPosiciones();
@@ -638,6 +636,46 @@ namespace Project1
                 Color.White
             );
 
+            int escalaSprites = 2;
+            int margenDerecho = 20;
+            int separacionSprites = 8;
+            int xItems = GraphicsDevice.Viewport.Width - Items.Width * escalaSprites - margenDerecho;
+            int yItems = 20;
+            _spriteBatch.Draw(
+                Items,
+                new Rectangle(
+                    xItems,
+                    yItems,
+                    Items.Width * escalaSprites,
+                    Items.Height * escalaSprites
+                ),
+                Color.White
+            );
+
+            int yBoost = yItems + Items.Height * escalaSprites + separacionSprites;
+            _spriteBatch.Draw(
+                boost,
+                new Rectangle(
+                    GraphicsDevice.Viewport.Width - boost.Width * escalaSprites - margenDerecho,
+                    yBoost,
+                    boost.Width * escalaSprites,
+                    boost.Height * escalaSprites
+                ),
+                Color.White
+            );
+
+            int yBoostAtk = yBoost + boost.Height * escalaSprites + separacionSprites;
+            _spriteBatch.Draw(
+                boostatk,
+                new Rectangle(
+                    GraphicsDevice.Viewport.Width - boostatk.Width * escalaSprites - margenDerecho,
+                    yBoostAtk,
+                    boostatk.Width * escalaSprites,
+                    boostatk.Height * escalaSprites
+                ),
+                Color.White
+            );
+
             int xTeclado = 20;
             int yTeclado = 20;
             const int separacionTeclados = 8;
@@ -686,6 +724,35 @@ namespace Project1
             _spriteBatch.Draw(
                 teclado1,
                 new Rectangle(xTeclado, yTeclado, teclado1.Width * 2, teclado1.Height * 2),
+                Color.White
+            );
+            _spriteBatch.Draw(
+                arma,
+                new Rectangle(xAccion, yTeclado, arma.Width * 2, arma.Height * 2),
+                Color.White
+            );
+            yTeclado += teclado1.Height * 2 + separacionTeclados;
+
+            _spriteBatch.Draw(
+                teclado2,
+                new Rectangle(
+                    xTeclado,
+                    yTeclado,
+                    teclado2.Width * 2,
+                    teclado2.Height * 2
+                ),
+                Color.White
+            );
+            yTeclado += teclado2.Height * 2 + separacionTeclados;
+
+            _spriteBatch.Draw(
+                tecladoEspacio,
+                new Rectangle(
+                    xTeclado,
+                    yTeclado,
+                    tecladoEspacio.Width * 2,
+                    tecladoEspacio.Height * 2
+                ),
                 Color.White
             );
 
