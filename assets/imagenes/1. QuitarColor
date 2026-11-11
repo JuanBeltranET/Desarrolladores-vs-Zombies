@@ -1,9 +1,7 @@
 Zombie normal y zombie tanque: FFF898F8
 Zombie salvaje: FF00A0F8
-boton de info (opciones): FFED1C24
-Teclados desc.: FFED1C24
+Todos los textos: FFED1C24
 Boton de Exit: FFFFFFFF
 Vida: FFFFFFFF
-Boost desc.: FFED1C24
 Espada: FFED1C24
-Manzana: FFED1C24
+Manzana: FF000000
