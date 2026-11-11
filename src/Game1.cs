@@ -29,6 +29,11 @@ namespace Project2
         private Texture2D Items;
         private Texture2D boost;
         private Texture2D boostatk;
+        private Texture2D nivel1;
+        private Texture2D nivel2;
+        private Texture2D nivel1texto;
+        private Texture2D nivel2texto;
+        private Texture2D pool;
         // private Texture2D inventario;
         // Imagenes del menu //
         private Texture2D fondoMenu;
@@ -43,6 +48,7 @@ namespace Project2
         private Texture2D tecladoEspacio;
         private Texture2D arma;
         private Texture2D correr;
+        private Texture2D comer;
         private Texture2D inventario;
         private Texture2D atacar;
         //musica
@@ -54,10 +60,12 @@ namespace Project2
         {
             Menu,
             Opciones,
+            MenuNuevo,
             Jugando
         }
 
         EstadoJuego estadoActual = EstadoJuego.Menu;
+        bool nivelDosSeleccionado;
 
         // Boton Jugar
         Rectangle rectBotonJugar;
@@ -146,6 +154,11 @@ namespace Project2
             Items = Content.Load<Texture2D>("imagenes/Items");
             boost = Content.Load<Texture2D>("imagenes/boost");
             boostatk = Content.Load<Texture2D>("imagenes/boostatk");
+            nivel1 = Content.Load<Texture2D>("imagenes/nivel1");
+            nivel2 = Content.Load<Texture2D>("imagenes/nivel2");
+            nivel1texto = Content.Load<Texture2D>("imagenes/nivel1texto");
+            nivel2texto = Content.Load<Texture2D>("imagenes/nivel2texto");
+            pool = Content.Load<Texture2D>("imagenes/pool");
             gameover = Content.Load<Texture2D>("imagenes/GameOver");
             // CARGAR IMAGENES DEL MENU
             fondoMenu = Content.Load<Texture2D>("imagenes/FondoMenu");
@@ -190,6 +203,7 @@ namespace Project2
             tecladoEspacio = Content.Load<Texture2D>("imagenes/tecladoEspacio");
             arma = Content.Load<Texture2D>("imagenes/arma");
             correr = Content.Load<Texture2D>("imagenes/correr"); // FFED1C24
+            comer = Content.Load<Texture2D>("imagenes/comer");
             inventario = Content.Load<Texture2D>("imagenes/inventario"); // FFED1C24
             atacar = Content.Load<Texture2D>("imagenes/atacar"); // FFED1C24
 
@@ -237,6 +251,15 @@ namespace Project2
             currentAnimationIndex = 0;
 
             moviendo = false;
+        }
+
+        private void IniciarJuego(bool usarFondoPool)
+        {
+            nivelDosSeleccionado = usarFondoPool;
+            estadoActual = EstadoJuego.Jugando;
+            MediaPlayer.IsRepeating = true;
+            MediaPlayer.Play(backgroundMusic);
+            ReiniciarPosiciones();
         }
 
         // METODO PARA PERSEGUIR A FIOLINA
@@ -310,11 +333,7 @@ namespace Project2
                     // Comprobar si se hizo clic en Jugar
                     else if (rectBotonJugar.Contains(mouseActual.Position))
                     {
-                        estadoActual = EstadoJuego.Jugando;
-                        MediaPlayer.IsRepeating = true;
-                        MediaPlayer.Play(backgroundMusic);
-
-                        ReiniciarPosiciones();
+                        estadoActual = EstadoJuego.MenuNuevo;
                     }
                     // Abrir el menu de opciones
                     else if (rectOpciones.Contains(mouseActual.Position))
@@ -329,6 +348,55 @@ namespace Project2
 
                 base.Update(gameTime);
 
+                return;
+            }
+
+            // Menu nuevo vacio: Enter conserva el acceso al juego base y Back vuelve al menu principal.
+            if (estadoActual == EstadoJuego.MenuNuevo)
+            {
+                ObtenerRectangulosMenuNuevo(
+                    out Rectangle rectNivel1,
+                    out Rectangle rectNivel2,
+                    out _,
+                    out _
+                );
+                Rectangle rectBotonVolver = new Rectangle(
+                    0,
+                    GraphicsDevice.Viewport.Height - exitGame.Height,
+                    exitGame.Width,
+                    exitGame.Height
+                );
+
+                if (mouseActual.LeftButton == ButtonState.Pressed &&
+                    mouseAnterior.LeftButton == ButtonState.Released &&
+                    rectBotonVolver.Contains(mouseActual.Position))
+                {
+                    estadoActual = EstadoJuego.Menu;
+                }
+                else if (mouseActual.LeftButton == ButtonState.Pressed &&
+                    mouseAnterior.LeftButton == ButtonState.Released &&
+                    rectNivel1.Contains(mouseActual.Position))
+                {
+                    IniciarJuego(false);
+                }
+                else if (mouseActual.LeftButton == ButtonState.Pressed &&
+                    mouseAnterior.LeftButton == ButtonState.Released &&
+                    rectNivel2.Contains(mouseActual.Position))
+                {
+                    IniciarJuego(true);
+                }
+                else if (teclado.IsKeyDown(Keys.Enter) && tecladoAnterior.IsKeyUp(Keys.Enter))
+                {
+                    IniciarJuego(false);
+                }
+                else if (teclado.IsKeyDown(Keys.Back) && tecladoAnterior.IsKeyUp(Keys.Back))
+                {
+                    estadoActual = EstadoJuego.Menu;
+                }
+
+                mouseAnterior = mouseActual;
+                tecladoAnterior = teclado;
+                base.Update(gameTime);
                 return;
             }
 
@@ -743,6 +811,11 @@ namespace Project2
                 ),
                 Color.White
             );
+            _spriteBatch.Draw(
+                arma,
+                new Rectangle(xAccion, yTeclado, arma.Width * 2, arma.Height * 2),
+                Color.White
+            );
             yTeclado += teclado2.Height * 2 + separacionTeclados;
 
             _spriteBatch.Draw(
@@ -755,6 +828,16 @@ namespace Project2
                 ),
                 Color.White
             );
+            _spriteBatch.Draw(
+                comer,
+                new Rectangle(
+                    xAccion,
+                    yTeclado,
+                    comer.Width * 2,
+                    comer.Height * 2
+                ),
+                Color.White
+            );
 
             _spriteBatch.Draw(
                 exitGame,
@@ -762,6 +845,110 @@ namespace Project2
                 Color.White
             );
 
+            _spriteBatch.End();
+        }
+
+        private void ObtenerRectangulosMenuNuevo(
+            out Rectangle rectNivel1,
+            out Rectangle rectNivel2,
+            out Rectangle rectTextoNivel1,
+            out Rectangle rectTextoNivel2
+        )
+        {
+            const int escalaSpritesNivel = 2;
+            const int separacionNiveles = 40;
+            const int separacionVerticalTexto = 10;
+            int anchoNivel1 = nivel1.Width * escalaSpritesNivel;
+            int altoNivel1 = nivel1.Height * escalaSpritesNivel;
+            int anchoNivel2 = nivel2.Width * escalaSpritesNivel;
+            int altoNivel2 = nivel2.Height * escalaSpritesNivel;
+            int altoMaximo = Math.Max(altoNivel1, altoNivel2);
+            int anchoTextoNivel1 = nivel1texto.Width * escalaSpritesNivel;
+            int altoTextoNivel1 = nivel1texto.Height * escalaSpritesNivel;
+            int anchoTextoNivel2 = nivel2texto.Width * escalaSpritesNivel;
+            int altoTextoNivel2 = nivel2texto.Height * escalaSpritesNivel;
+            int altoMaximoTexto = Math.Max(altoTextoNivel1, altoTextoNivel2);
+            int anchoTotal = anchoNivel1 + separacionNiveles + anchoNivel2;
+            int xInicial = (GraphicsDevice.Viewport.Width - anchoTotal) / 2;
+            int altoTotal = altoMaximo + separacionVerticalTexto + altoMaximoTexto;
+            int yInicial = (GraphicsDevice.Viewport.Height - altoTotal) / 2;
+            int yTexto = yInicial + altoMaximo + separacionVerticalTexto;
+
+            rectNivel1 = new Rectangle(
+                xInicial,
+                yInicial + (altoMaximo - altoNivel1) / 2,
+                anchoNivel1,
+                altoNivel1
+            );
+            rectNivel2 = new Rectangle(
+                xInicial + anchoNivel1 + separacionNiveles,
+                yInicial + (altoMaximo - altoNivel2) / 2,
+                anchoNivel2,
+                altoNivel2
+            );
+            rectTextoNivel1 = new Rectangle(
+                xInicial + (anchoNivel1 - anchoTextoNivel1) / 2,
+                yTexto + (altoMaximoTexto - altoTextoNivel1) / 2,
+                anchoTextoNivel1,
+                altoTextoNivel1
+            );
+            rectTextoNivel2 = new Rectangle(
+                xInicial + anchoNivel1 + separacionNiveles + (anchoNivel2 - anchoTextoNivel2) / 2,
+                yTexto + (altoMaximoTexto - altoTextoNivel2) / 2,
+                anchoTextoNivel2,
+                altoTextoNivel2
+            );
+        }
+
+        private void DibujarMenuNuevo()
+        {
+            GraphicsDevice.Clear(Color.Black);
+
+            _spriteBatch.Begin();
+            _spriteBatch.Draw(
+                fondoMenu,
+                new Rectangle(
+                    0,
+                    0,
+                    GraphicsDevice.Viewport.Width,
+                    GraphicsDevice.Viewport.Height
+                ),
+                Color.White
+            );
+
+            ObtenerRectangulosMenuNuevo(
+                out Rectangle rectNivel1,
+                out Rectangle rectNivel2,
+                out Rectangle rectTextoNivel1,
+                out Rectangle rectTextoNivel2
+            );
+
+            _spriteBatch.Draw(
+                nivel1,
+                rectNivel1,
+                Color.White
+            );
+            _spriteBatch.Draw(
+                nivel2,
+                rectNivel2,
+                Color.White
+            );
+            _spriteBatch.Draw(
+                nivel1texto,
+                rectTextoNivel1,
+                Color.White
+            );
+            _spriteBatch.Draw(
+                nivel2texto,
+                rectTextoNivel2,
+                Color.White
+            );
+
+            _spriteBatch.Draw(
+                exitGame,
+                new Vector2(0, GraphicsDevice.Viewport.Height - exitGame.Height),
+                Color.White
+            );
             _spriteBatch.End();
         }
 
@@ -781,6 +968,15 @@ namespace Project2
             if (estadoActual == EstadoJuego.Opciones)
             {
                 DibujarOpciones();
+
+                base.Draw(gameTime);
+
+                return;
+            }
+
+            if (estadoActual == EstadoJuego.MenuNuevo)
+            {
+                DibujarMenuNuevo();
 
                 base.Draw(gameTime);
 
@@ -811,17 +1007,41 @@ namespace Project2
 
 
             // FONDO DEL NIVEL
-            _spriteBatch.Draw(
-                background,
-                new Vector2(0, -10),
-                null,
-                Color.White,
-                0f,
-                new Vector2(10, 25),
-                0.8f,
-                SpriteEffects.None,
-                0f
-            );
+            if (nivelDosSeleccionado)
+            {
+                const float escalaFondo = 0.8f;
+                Rectangle fondoPoolOrigen = new Rectangle(0, 37, pool.Width, 600);
+                Rectangle fondoPoolDestino = new Rectangle(
+                    -8,
+                    0,
+                    (int)(pool.Width * escalaFondo),
+                    (int)(fondoPoolOrigen.Height * escalaFondo)
+                );
+                _spriteBatch.Draw(pool, fondoPoolDestino, fondoPoolOrigen, Color.White);
+
+                Rectangle aguaPoolOrigen = new Rectangle(11, 912, 710, 158);
+                Rectangle aguaPoolDestino = new Rectangle(
+                    fondoPoolDestino.X + (int)(254 * escalaFondo),
+                    fondoPoolDestino.Y + (int)((302 - fondoPoolOrigen.Y) * escalaFondo),
+                    (int)(727 * escalaFondo),
+                    (int)(176 * escalaFondo)
+                );
+                _spriteBatch.Draw(pool, aguaPoolDestino, aguaPoolOrigen, Color.White);
+            }
+            else
+            {
+                _spriteBatch.Draw(
+                    background,
+                    new Vector2(0, -10),
+                    null,
+                    Color.White,
+                    0f,
+                    new Vector2(10, 25),
+                    0.8f,
+                    SpriteEffects.None,
+                    0f
+                );
+            }
 
             // FIOLINA
             if (moviendo)
