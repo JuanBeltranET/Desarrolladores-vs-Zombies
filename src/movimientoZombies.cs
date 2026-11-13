@@ -1,0 +1,917 @@
+﻿using System;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
+using System.Threading.Tasks.Dataflow;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Media;
+
+namespace Project1
+{
+    public class Game1 : Game
+    {
+        private GraphicsDeviceManager _graphics;
+        private SpriteBatch _spriteBatch;
+
+        Texture2D debugTexture;
+
+        private Texture2D zombie;//f898f8
+        private Texture2D superviviente;
+        private Texture2D background;
+        private Texture2D Zombiesas;//00a0f8
+        private Texture2D ZombieTank;
+        private Texture2D barraVIDA;//ffffff
+        private Texture2D barraST;
+        private Texture2D pistola;//0000f8
+        private Texture2D gameover;
+        private Texture2D Items;
+        private Texture2D boost;
+        private Texture2D boostatk;
+        private Texture2D nivel1;
+        private Texture2D nivel2;
+        private Texture2D nivel1texto;
+        private Texture2D nivel2texto;
+        private Texture2D pool;
+        // Imagenes del menu //
+        private Texture2D fondoMenu;
+        private Texture2D botonJugar;
+        private Texture2D exitGame;
+        private Texture2D opciones;
+        private Texture2D tecladoZ;
+        private Texture2D tecladoX;
+        private Texture2D tecladoC;
+        private Texture2D teclado1;
+        private Texture2D teclado2;
+        private Texture2D tecladoEspacio;
+        private Texture2D arma;
+        private Texture2D correr;
+        private Texture2D comer;
+        private Texture2D inventario;
+        private Texture2D atacar;
+        //musica
+        private Song backgroundMusic;
+        private Song MusicaMenu;
+
+        // Estados del juego
+        enum EstadoJuego
+        {
+            Menu,
+            Opciones,
+            MenuNuevo,
+            Jugando
+        }
+
+        EstadoJuego estadoActual = EstadoJuego.Menu;
+        bool nivelDosSeleccionado;
+
+        // Boton Jugar
+        Rectangle rectBotonJugar;
+        Rectangle rectOpciones;
+        Rectangle spriteBotonJugarNormal;
+        Rectangle spriteBotonJugarHover;
+
+        // Control del mouse
+        MouseState mouseAnterior;
+
+        // Control del teclado
+        KeyboardState tecladoAnterior;
+
+        // HITBOXES
+        Rectangle hitboxZombie = new Rectangle(600, 100, 41, 54);
+        Rectangle hitboxJugador;
+        Rectangle hitboxZombieSal = new Rectangle(300, 100, 49, 56);
+        Rectangle hitboxZombieTank = new Rectangle(500, 100, 35, 57);
+        Rectangle hitboxItem = new Rectangle(550, 75, 64, 64);
+
+        // Limites del pasto
+        Rectangle limitesPasto = new Rectangle(160, 30, 625, 420);
+
+        // Movimiento de Fiolina
+        Vector2 posicionFiolina = new Vector2(220, 100);
+        float velocidadFiolina = 150f;
+
+        // POSICIONES DE LOS ZOMBIES
+        Vector2 posicionZombie = new Vector2(600, 100);
+        Vector2 posicionZombieSal = new Vector2(300, 100);
+        Vector2 posicionZombieTank = new Vector2(500, 100);
+
+        //posicion Item
+        Vector2 posicionItem = new Vector2(550, 75);
+
+        // VELOCIDAD DE LOS ZOMBIES
+        float velocidadZombie = 65f;
+        float velocidadZombieSal = 90f;
+        float velocidadZombieTank = 35f;
+
+        // Estado de movimiento
+        bool moviendo = false;
+
+        // Sprite de Fiolina quieta
+        Rectangle spriteQuieto = new Rectangle(71, 3, 29, 50);
+
+        // Animacion de Fiolina
+        float timer;
+        int threshold = 100;
+        Rectangle[] sourceRectangles;
+        int currentAnimationIndex = 0;
+
+        // ANIMACION ZOMBIE NORMAL (El primero de fondo rosa)
+        float zombieTimer;
+        int zombieThreshold = 120;
+        Rectangle[] sourceRectanglesZombie;
+        int currentZombieAnimationIndex = 0;
+
+        // ANIMACION ZOMBIE SALVAJE (El último que pasaste)
+        float zombieSalTimer;
+        int zombieSalThreshold = 120;
+        Rectangle[] sourceRectanglesZombieSal;
+        int currentZombieSalAnimationIndex = 0;
+
+        public Game1()
+        {
+            _graphics = new GraphicsDeviceManager(this);
+            Content.RootDirectory = "Content";
+            IsMouseVisible = true;
+        }
+
+        protected override void Initialize()
+        {
+            base.Initialize();
+        }
+
+        protected override void LoadContent()
+        {
+            _spriteBatch = new SpriteBatch(GraphicsDevice);
+
+            debugTexture = new Texture2D(GraphicsDevice, 1, 1);
+            debugTexture.SetData(new[] { Color.Red });
+
+            // CARGAR IMAGENES DEL JUEGO
+            zombie = Content.Load<Texture2D>("imagenes/Zombie");
+            superviviente = Content.Load<Texture2D>("imagenes/FiolinaSprite");
+            background = Content.Load<Texture2D>("imagenes/Background");
+            Zombiesas = Content.Load<Texture2D>("imagenes/ZombieSalvaje");
+            ZombieTank = Content.Load<Texture2D>("imagenes/ZombieTanque");
+            barraVIDA = Content.Load<Texture2D>("imagenes/HealthBar");
+            barraST = Content.Load<Texture2D>("imagenes/StaminaMeter");
+            Items = Content.Load<Texture2D>("imagenes/Items");
+            boost = Content.Load<Texture2D>("imagenes/boost");
+            boostatk = Content.Load<Texture2D>("imagenes/boostatk");
+            nivel1 = Content.Load<Texture2D>("imagenes/nivel1");
+            nivel2 = Content.Load<Texture2D>("imagenes/nivel2");
+            nivel1texto = Content.Load<Texture2D>("imagenes/nivel1texto");
+            nivel2texto = Content.Load<Texture2D>("imagenes/nivel2texto");
+            pool = Content.Load<Texture2D>("imagenes/pool");
+            gameover = Content.Load<Texture2D>("imagenes/GameOver");
+
+            // CARGAR IMAGENES DEL MENU
+            fondoMenu = Content.Load<Texture2D>("imagenes/FondoMenu");
+            botonJugar = Content.Load<Texture2D>("imagenes/seleccionar");
+
+            int altoFrameBotonJugar = botonJugar.Width;
+            spriteBotonJugarHover = new Rectangle(0, 0, botonJugar.Width, altoFrameBotonJugar);
+            spriteBotonJugarNormal = new Rectangle(0, botonJugar.Height / 2, botonJugar.Width, altoFrameBotonJugar);
+
+            rectBotonJugar = new Rectangle(
+            (GraphicsDevice.Viewport.Width - botonJugar.Width * 2) / 2,
+            (GraphicsDevice.Viewport.Height - altoFrameBotonJugar * 2) / 2,
+            botonJugar.Width * 2,
+            altoFrameBotonJugar * 2
+            );
+
+            opciones = Content.Load<Texture2D>("imagenes/opciones");
+            rectOpciones = new Rectangle(
+            (GraphicsDevice.Viewport.Width - opciones.Width * 2) / 2,
+            rectBotonJugar.Bottom + 10,
+            opciones.Width * 2,
+            opciones.Height * 2
+            );
+
+            exitGame = Content.Load<Texture2D>("imagenes/ExitGame");
+            tecladoZ = Content.Load<Texture2D>("imagenes/tecladoZ");
+            tecladoX = Content.Load<Texture2D>("imagenes/tecladoX");
+            tecladoC = Content.Load<Texture2D>("imagenes/tecladoC");
+            teclado1 = Content.Load<Texture2D>("imagenes/teclado1");
+            teclado2 = Content.Load<Texture2D>("imagenes/teclado2");
+            tecladoEspacio = Content.Load<Texture2D>("imagenes/tecladoEspacio");
+            arma = Content.Load<Texture2D>("imagenes/arma");
+            correr = Content.Load<Texture2D>("imagenes/correr");
+            comer = Content.Load<Texture2D>("imagenes/comer");
+            inventario = Content.Load<Texture2D>("imagenes/inventario");
+            atacar = Content.Load<Texture2D>("imagenes/atacar");
+
+            // MUSICA
+            backgroundMusic = Content.Load<Song>("musica/04. Grasswalk");
+            MusicaMenu = Content.Load<Song>("musica/MusicaMenu");
+
+            MediaPlayer.IsRepeating = false;
+            MediaPlayer.Play(MusicaMenu);
+
+            // CONFIGURACION DE ANIMACION DE FIOLINA
+            timer = 0;
+            sourceRectangles = new Rectangle[8];
+            sourceRectangles[0] = new Rectangle(8, 56, 33, 41);
+            sourceRectangles[1] = new Rectangle(39, 56, 33, 41);
+            sourceRectangles[2] = new Rectangle(70, 56, 33, 41);
+            sourceRectangles[3] = new Rectangle(103, 56, 34, 41);
+            sourceRectangles[4] = new Rectangle(137, 56, 33, 40);
+            sourceRectangles[5] = new Rectangle(170, 56, 34, 41);
+            sourceRectangles[6] = new Rectangle(205, 56, 34, 41);
+            sourceRectangles[7] = new Rectangle(244, 56, 34, 41);
+            currentAnimationIndex = 0;
+
+            // CONFIGURACION DE ANIMACION DEL ZOMBIE NORMAL (El de fondo rosa con sus 7 fotos originales)
+            zombieTimer = 0;
+            sourceRectanglesZombie = new Rectangle[7];
+            sourceRectanglesZombie[0] = new Rectangle(0, 59, 41, 54);
+            sourceRectanglesZombie[1] = new Rectangle(50, 59, 41, 53);
+            sourceRectanglesZombie[2] = new Rectangle(100, 59, 41, 54);
+            sourceRectanglesZombie[3] = new Rectangle(150, 59, 41, 53);
+            sourceRectanglesZombie[4] = new Rectangle(200, 59, 41, 53);
+            sourceRectanglesZombie[5] = new Rectangle(250, 59, 41, 53);
+            sourceRectanglesZombie[6] = new Rectangle(300, 59, 41, 53);
+            currentZombieAnimationIndex = 0;
+
+            // CONFIGURACION DE ANIMACION DEL ZOMBIE SALVAJE (El último que pasaste en Y=529)
+            zombieSalTimer = 0;
+            sourceRectanglesZombieSal = new Rectangle[7];
+            sourceRectanglesZombieSal[0] = new Rectangle(4, 529, 49, 56);
+            sourceRectanglesZombieSal[1] = new Rectangle(62, 529, 49, 56);
+            sourceRectanglesZombieSal[2] = new Rectangle(120, 529, 49, 56);
+            sourceRectanglesZombieSal[3] = new Rectangle(178, 529, 49, 56);
+            sourceRectanglesZombieSal[4] = new Rectangle(236, 529, 49, 56);
+            sourceRectanglesZombieSal[5] = new Rectangle(294, 529, 49, 56);
+            sourceRectanglesZombieSal[6] = new Rectangle(352, 529, 49, 56);
+            currentZombieSalAnimationIndex = 0;
+        }
+
+        private void ReiniciarPosiciones()
+        {
+            posicionFiolina = new Vector2(220, 100);
+
+            posicionZombie = new Vector2(600, 100);
+            posicionZombieSal = new Vector2(600, 150);
+            posicionZombieTank = new Vector2(600, 200);
+
+            hitboxZombie = new Rectangle(600, 100, 41, 54);
+            hitboxZombieSal = new Rectangle(300, 100, 49, 56);
+            hitboxZombieTank = new Rectangle(500, 100, 35, 57);
+
+            hitboxJugador = new Rectangle(220, 100, 30, 45);
+
+            timer = 0;
+            currentAnimationIndex = 0;
+
+            zombieTimer = 0;
+            currentZombieAnimationIndex = 0;
+
+            zombieSalTimer = 0;
+            currentZombieSalAnimationIndex = 0;
+
+            moviendo = false;
+        }
+
+        private void IniciarJuego(bool usarFondoPool)
+        {
+            nivelDosSeleccionado = usarFondoPool;
+            estadoActual = EstadoJuego.Jugando;
+            MediaPlayer.IsRepeating = true;
+            MediaPlayer.Play(backgroundMusic);
+            ReiniciarPosiciones();
+        }
+
+        private void PerseguirJugador(
+        ref Vector2 posicion,
+        ref Rectangle hitbox,
+        float velocidad,
+        float tiempo)
+        {
+            Vector2 centroJugador = posicionFiolina + new Vector2(15, 22);
+            Vector2 centroZombie = new Vector2(
+            hitbox.X + hitbox.Width / 2,
+            hitbox.Y + hitbox.Height / 2
+            );
+
+            Vector2 direccion = centroJugador - centroZombie;
+
+            if (direccion.Length() > 0)
+            {
+                direccion.Normalize();
+                posicion += direccion * velocidad * tiempo;
+            }
+
+            hitbox = new Rectangle(
+            (int)posicion.X,
+            (int)posicion.Y,
+            hitbox.Width,
+            hitbox.Height
+            );
+        }
+
+        protected override void Update(GameTime gameTime)
+        {
+            KeyboardState teclado = Keyboard.GetState();
+            MouseState mouseActual = Mouse.GetState();
+
+            if (teclado.IsKeyDown(Keys.Escape))
+            {
+                Exit();
+            }
+
+            if (estadoActual == EstadoJuego.Menu)
+            {
+                if (mouseActual.LeftButton == ButtonState.Pressed &&
+                mouseAnterior.LeftButton == ButtonState.Released)
+                {
+                    Rectangle rectBotonSalir = new Rectangle(
+                    0,
+                    GraphicsDevice.Viewport.Height - exitGame.Height,
+                    exitGame.Width,
+                    exitGame.Height
+                    );
+
+                    if (rectBotonSalir.Contains(mouseActual.Position))
+                    {
+                        Exit();
+                    }
+                    else if (rectBotonJugar.Contains(mouseActual.Position))
+                    {
+                        estadoActual = EstadoJuego.MenuNuevo;
+                    }
+                    else if (rectOpciones.Contains(mouseActual.Position))
+                    {
+                        estadoActual = EstadoJuego.Opciones;
+                    }
+                }
+
+                mouseAnterior = mouseActual;
+                tecladoAnterior = teclado;
+                base.Update(gameTime);
+                return;
+            }
+
+            if (estadoActual == EstadoJuego.MenuNuevo)
+            {
+                ObtenerRectangulosMenuNuevo(
+                out Rectangle rectNivel1,
+                out Rectangle rectNivel2,
+                out _,
+                out _
+                );
+                Rectangle rectBotonVolver = new Rectangle(
+                0,
+                GraphicsDevice.Viewport.Height - exitGame.Height,
+                exitGame.Width,
+                exitGame.Height
+                );
+
+                if (mouseActual.LeftButton == ButtonState.Pressed &&
+                mouseAnterior.LeftButton == ButtonState.Released &&
+                rectBotonVolver.Contains(mouseActual.Position))
+                {
+                    estadoActual = EstadoJuego.Menu;
+                }
+                else if (mouseActual.LeftButton == ButtonState.Pressed &&
+                mouseAnterior.LeftButton == ButtonState.Released &&
+                rectNivel1.Contains(mouseActual.Position))
+                {
+                    IniciarJuego(false);
+                }
+                else if (mouseActual.LeftButton == ButtonState.Pressed &&
+                mouseAnterior.LeftButton == ButtonState.Released &&
+                rectNivel2.Contains(mouseActual.Position))
+                {
+                    IniciarJuego(true);
+                }
+                else if (teclado.IsKeyDown(Keys.Enter) && tecladoAnterior.IsKeyUp(Keys.Enter))
+                {
+                    IniciarJuego(false);
+                }
+                else if (teclado.IsKeyDown(Keys.Back) && tecladoAnterior.IsKeyUp(Keys.Back))
+                {
+                    estadoActual = EstadoJuego.Menu;
+                }
+
+                mouseAnterior = mouseActual;
+                tecladoAnterior = teclado;
+                base.Update(gameTime);
+                return;
+            }
+
+            if (estadoActual == EstadoJuego.Opciones)
+            {
+                if (mouseActual.LeftButton == ButtonState.Pressed &&
+                mouseAnterior.LeftButton == ButtonState.Released)
+                {
+                    Rectangle rectBotonVolver = new Rectangle(
+                    0,
+                    GraphicsDevice.Viewport.Height - exitGame.Height,
+                    exitGame.Width,
+                    exitGame.Height
+                    );
+
+                    if (rectBotonVolver.Contains(mouseActual.Position))
+                    {
+                        estadoActual = EstadoJuego.Menu;
+                    }
+                }
+
+                mouseAnterior = mouseActual;
+                tecladoAnterior = teclado;
+                base.Update(gameTime);
+                return;
+            }
+
+            if (teclado.IsKeyDown(Keys.Back) &&
+            tecladoAnterior.IsKeyUp(Keys.Back))
+            {
+                estadoActual = EstadoJuego.Menu;
+                MediaPlayer.IsRepeating = false;
+                MediaPlayer.Play(MusicaMenu);
+                ReiniciarPosiciones();
+                mouseAnterior = mouseActual;
+                tecladoAnterior = teclado;
+                base.Update(gameTime);
+                return;
+            }
+
+            tecladoAnterior = teclado;
+            mouseAnterior = mouseActual;
+
+            float tiempo = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            moviendo = false;
+            float velocidadActual = velocidadFiolina;
+
+            if (teclado.IsKeyDown(Keys.Z))
+            {
+                velocidadActual *= 1.33f;
+            }
+
+            float movimientoX = 0;
+            if (teclado.IsKeyDown(Keys.Right))
+            {
+                movimientoX = velocidadActual * tiempo;
+                moviendo = true;
+            }
+            if (teclado.IsKeyDown(Keys.Left))
+            {
+                movimientoX = -velocidadActual * tiempo;
+                moviendo = true;
+            }
+
+            posicionFiolina.X += movimientoX;
+            hitboxJugador = new Rectangle((int)posicionFiolina.X, (int)posicionFiolina.Y, 30, 45);
+
+            if (!limitesPasto.Contains(hitboxJugador))
+            {
+                posicionFiolina.X -= movimientoX;
+            }
+
+            float movimientoY = 0;
+            if (teclado.IsKeyDown(Keys.Up))
+            {
+                movimientoY = -velocidadActual * tiempo;
+                moviendo = true;
+            }
+            if (teclado.IsKeyDown(Keys.Down))
+            {
+                movimientoY = velocidadActual * tiempo;
+                moviendo = true;
+            }
+
+            posicionFiolina.Y += movimientoY;
+            hitboxJugador = new Rectangle((int)posicionFiolina.X, (int)posicionFiolina.Y, 30, 45);
+
+            if (!limitesPasto.Contains(hitboxJugador))
+            {
+                posicionFiolina.Y -= movimientoY;
+            }
+
+            // ANIMACION DE FIOLINA
+            if (moviendo)
+            {
+                timer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+                if (timer >= threshold)
+                {
+                    currentAnimationIndex++;
+                    if (currentAnimationIndex >= sourceRectangles.Length)
+                    {
+                        currentAnimationIndex = 0;
+                    }
+                    timer = 0;
+                }
+            }
+            else
+            {
+                currentAnimationIndex = 0;
+                timer = 0;
+            }
+
+            // ANIMACION DEL ZOMBIE NORMAL (Fondo rosa)
+            zombieTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            if (zombieTimer >= zombieThreshold)
+            {
+                currentZombieAnimationIndex++;
+                if (currentZombieAnimationIndex >= sourceRectanglesZombie.Length)
+                {
+                    currentZombieAnimationIndex = 0;
+                }
+                zombieTimer = 0;
+            }
+
+            // ANIMACION DEL ZOMBIE SALVAJE (El último)
+            zombieSalTimer += (float)gameTime.ElapsedGameTime.TotalMilliseconds;
+            if (zombieSalTimer >= zombieSalThreshold)
+            {
+                currentZombieSalAnimationIndex++;
+                if (currentZombieSalAnimationIndex >= sourceRectanglesZombieSal.Length)
+                {
+                    currentZombieSalAnimationIndex = 0;
+                }
+                zombieSalTimer = 0;
+            }
+
+            hitboxJugador = new Rectangle((int)posicionFiolina.X, (int)posicionFiolina.Y, 30, 45);
+
+            // PERSECUCION DE LOS ZOMBIES
+            PerseguirJugador(ref posicionZombie, ref hitboxZombie, velocidadZombie, tiempo);
+            PerseguirJugador(ref posicionZombieSal, ref hitboxZombieSal, velocidadZombieSal, tiempo);
+            PerseguirJugador(ref posicionZombieTank, ref hitboxZombieTank, velocidadZombieTank, tiempo);
+
+            // COLISIONES
+            if (hitboxJugador.Intersects(hitboxZombie))
+            {
+                Debug.WriteLine("colision");
+                posicionFiolina = new Vector2(220, 100);
+                posicionZombie = new Vector2(600, 100);
+            }
+
+            if (hitboxJugador.Intersects(hitboxZombieSal))
+            {
+                Debug.WriteLine("colision");
+                posicionFiolina = new Vector2(220, 100);
+                posicionZombieSal = new Vector2(600, 150);
+            }
+
+            if (hitboxJugador.Intersects(hitboxZombieTank))
+            {
+                Debug.WriteLine("colision");
+                posicionFiolina = new Vector2(220, 100);
+                posicionZombieTank = new Vector2(600, 200);
+            }
+
+            hitboxJugador = new Rectangle((int)posicionFiolina.X, (int)posicionFiolina.Y, 30, 45);
+
+            if (hitboxJugador.Intersects(hitboxItem))
+            {
+                Debug.WriteLine("colision");
+                velocidadActual *= 2000000;
+            }
+
+            base.Update(gameTime);
+        }
+
+        private void DibujarMenu()
+        {
+            GraphicsDevice.Clear(Color.Black);
+            _spriteBatch.Begin();
+
+            _spriteBatch.Draw(
+            fondoMenu,
+            new Rectangle(0, 0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height),
+            Color.White
+            );
+
+            Rectangle spriteActual = rectBotonJugar.Contains(Mouse.GetState().Position)
+            ? spriteBotonJugarHover
+            : spriteBotonJugarNormal;
+
+            _spriteBatch.Draw(botonJugar, rectBotonJugar, spriteActual, Color.White);
+            _spriteBatch.Draw(opciones, rectOpciones, Color.White);
+            _spriteBatch.Draw(exitGame, new Vector2(0, GraphicsDevice.Viewport.Height - exitGame.Height), Color.White);
+
+            _spriteBatch.End();
+        }
+
+        private void DibujarOpciones()
+        {
+            GraphicsDevice.Clear(Color.Black);
+            _spriteBatch.Begin();
+
+            _spriteBatch.Draw(
+            fondoMenu,
+            new Rectangle(0, 0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height),
+            Color.White
+            );
+
+            int escalaSprites = 2;
+            int margenDerecho = 20;
+            int separacionSprites = 8;
+            int xItems = GraphicsDevice.Viewport.Width - Items.Width * escalaSprites - margenDerecho;
+            int yItems = 20;
+            _spriteBatch.Draw(Items, new Rectangle(xItems, yItems, Items.Width * escalaSprites, Items.Height * escalaSprites), Color.White);
+
+            int yBoost = yItems + Items.Height * escalaSprites + separacionSprites;
+            _spriteBatch.Draw(boost, new Rectangle(GraphicsDevice.Viewport.Width - boost.Width * escalaSprites - margenDerecho, yBoost, boost.Width * escalaSprites, boost.Height * escalaSprites), Color.White);
+
+            int yBoostAtk = yBoost + boost.Height * escalaSprites + separacionSprites;
+            _spriteBatch.Draw(boostatk, new Rectangle(GraphicsDevice.Viewport.Width - boostatk.Width * escalaSprites - margenDerecho, yBoostAtk, boostatk.Width * escalaSprites, boostatk.Height * escalaSprites), Color.White);
+
+            int xTeclado = 20;
+            int yTeclado = 20;
+            const int separacionTeclados = 8;
+            int anchoMaximoTeclado = Math.Max(tecladoZ.Width, Math.Max(tecladoX.Width, tecladoC.Width));
+            int xAccion = xTeclado + anchoMaximoTeclado * 2 + separacionTeclados;
+
+            _spriteBatch.Draw(tecladoZ, new Rectangle(xTeclado, yTeclado, tecladoZ.Width * 2, tecladoZ.Height * 2), Color.White);
+            _spriteBatch.Draw(correr, new Rectangle(xAccion, yTeclado, correr.Width * 2, correr.Height * 2), Color.White);
+            yTeclado += tecladoZ.Height * 2 + separacionTeclados;
+
+            _spriteBatch.Draw(tecladoX, new Rectangle(xTeclado, yTeclado, tecladoX.Width * 2, tecladoX.Height * 2), Color.White);
+            _spriteBatch.Draw(inventario, new Rectangle(xAccion, yTeclado, inventario.Width * 2, inventario.Height * 2), Color.White);
+            yTeclado += tecladoX.Height * 2 + separacionTeclados;
+
+            _spriteBatch.Draw(tecladoC, new Rectangle(xTeclado, yTeclado, tecladoC.Width * 2, tecladoC.Height * 2), Color.White);
+            _spriteBatch.Draw(atacar, new Rectangle(xAccion, yTeclado, atacar.Width * 2, atacar.Height * 2), Color.White);
+            yTeclado += tecladoC.Height * 2 + separacionTeclados;
+
+            _spriteBatch.Draw(teclado1, new Rectangle(xTeclado, yTeclado, teclado1.Width * 2, teclado1.Height * 2), Color.White);
+            _spriteBatch.Draw(arma, new Rectangle(xAccion, yTeclado, arma.Width * 2, arma.Height * 2), Color.White);
+            yTeclado += teclado1.Height * 2 + separacionTeclados;
+
+            _spriteBatch.Draw(teclado2, new Rectangle(xTeclado, yTeclado, teclado2.Width * 2, teclado2.Height * 2), Color.White);
+            _spriteBatch.Draw(arma, new Rectangle(xAccion, yTeclado, arma.Width * 2, arma.Height * 2), Color.White);
+            yTeclado += teclado2.Height * 2 + separacionTeclados;
+
+            _spriteBatch.Draw(tecladoEspacio, new Rectangle(xTeclado, yTeclado, tecladoEspacio.Width * 2, tecladoEspacio.Height * 2), Color.White);
+            _spriteBatch.Draw(comer, new Rectangle(xAccion, yTeclado, comer.Width * 2, comer.Height * 2), Color.White);
+
+            _spriteBatch.Draw(exitGame, new Vector2(0, GraphicsDevice.Viewport.Height - exitGame.Height), Color.White);
+
+            _spriteBatch.End();
+        }
+
+        private void ObtenerRectangulosMenuNuevo(
+        out Rectangle rectNivel1,
+        out Rectangle rectNivel2,
+        out Rectangle rectTextoNivel1,
+        out Rectangle rectTextoNivel2
+        )
+        {
+            const int escalaSpritesNivel = 2;
+            const int separacionNiveles = 40;
+            const int separacionVerticalTexto = 10;
+            int anchoNivel1 = nivel1.Width * escalaSpritesNivel;
+            int altoNivel1 = nivel1.Height * escalaSpritesNivel;
+            int anchoNivel2 = nivel2.Width * escalaSpritesNivel;
+            int altoNivel2 = nivel2.Height * escalaSpritesNivel;
+            int altoMaximo = Math.Max(altoNivel1, altoNivel2);
+            int anchoTextoNivel1 = nivel1texto.Width * escalaSpritesNivel;
+            int altoTextoNivel1 = nivel1texto.Height * escalaSpritesNivel;
+            int anchoTextoNivel2 = nivel2texto.Width * escalaSpritesNivel;
+            int altoTextoNivel2 = nivel2texto.Height * escalaSpritesNivel;
+            int altoMaximoTexto = Math.Max(altoTextoNivel1, altoTextoNivel2);
+            int anchoTotal = anchoNivel1 + separacionNiveles + anchoNivel2;
+            int xInicial = (GraphicsDevice.Viewport.Width - anchoTotal) / 2;
+            int altoTotal = altoMaximo + separacionVerticalTexto + altoMaximoTexto;
+            int yInicial = (GraphicsDevice.Viewport.Height - altoTotal) / 2;
+            int yTexto = yInicial + altoMaximo + separacionVerticalTexto;
+
+            rectNivel1 = new Rectangle(
+            xInicial,
+            yInicial + (altoMaximo - altoNivel1) / 2,
+            anchoNivel1,
+            altoNivel1
+            );
+            rectNivel2 = new Rectangle(
+            xInicial + anchoNivel1 + separacionNiveles,
+            yInicial + (altoMaximo - altoNivel2) / 2,
+            anchoNivel2,
+            altoNivel2
+            );
+            rectTextoNivel1 = new Rectangle(
+            xInicial + (anchoNivel1 - anchoTextoNivel1) / 2,
+            yTexto + (altoMaximoTexto - altoTextoNivel1) / 2,
+            anchoTextoNivel1,
+            altoTextoNivel1
+            );
+            rectTextoNivel2 = new Rectangle(
+            xInicial + anchoNivel1 + separacionNiveles + (anchoNivel2 - anchoTextoNivel2) / 2,
+            yTexto + (altoMaximoTexto - altoTextoNivel2) / 2,
+            anchoTextoNivel2,
+            altoTextoNivel2
+            );
+        }
+
+        private void DibujarMenuNuevo()
+        {
+            GraphicsDevice.Clear(Color.Black);
+            _spriteBatch.Begin();
+            _spriteBatch.Draw(
+            fondoMenu,
+            new Rectangle(0, 0, GraphicsDevice.Viewport.Width, GraphicsDevice.Viewport.Height),
+            Color.White
+            );
+
+            ObtenerRectangulosMenuNuevo(
+            out Rectangle rectNivel1,
+            out Rectangle rectNivel2,
+            out Rectangle rectTextoNivel1,
+            out Rectangle rectTextoNivel2
+            );
+
+            _spriteBatch.Draw(nivel1, rectNivel1, Color.White);
+            _spriteBatch.Draw(nivel2, rectNivel2, Color.White);
+            _spriteBatch.Draw(nivel1texto, rectTextoNivel1, Color.White);
+            _spriteBatch.Draw(nivel2texto, rectTextoNivel2, Color.White);
+            _spriteBatch.Draw(exitGame, new Vector2(0, GraphicsDevice.Viewport.Height - exitGame.Height), Color.White);
+
+            _spriteBatch.End();
+        }
+
+        protected override void Draw(GameTime gameTime)
+        {
+            if (estadoActual == EstadoJuego.Menu)
+            {
+                DibujarMenu();
+                base.Draw(gameTime);
+                return;
+            }
+
+            if (estadoActual == EstadoJuego.Opciones)
+            {
+                DibujarOpciones();
+                base.Draw(gameTime);
+                return;
+            }
+
+            if (estadoActual == EstadoJuego.MenuNuevo)
+            {
+                DibujarMenuNuevo();
+                base.Draw(gameTime);
+                return;
+            }
+
+            GraphicsDevice.Clear(Color.Orange);
+            _spriteBatch.Begin();
+
+            Rectangle ZTquieto = new Rectangle(4, 10, 35, 57);
+            Rectangle barraVIDA1 = new Rectangle(0, 0, 48, 45);
+            Rectangle barraVIDA2 = new Rectangle(200, 2, 48, 45);
+            Rectangle barraVIDA3 = new Rectangle(400, 2, 48, 45);
+            Rectangle barraSTAM = new Rectangle(3, 4, 164, 35);
+            Rectangle ItemV = new Rectangle(0, 129, 64, 64);
+
+            // FONDO DEL NIVEL
+            if (nivelDosSeleccionado)
+            {
+                const float escalaFondo = 0.8f;
+                Rectangle fondoPoolOrigen = new Rectangle(0, 37, pool.Width, 600);
+                Rectangle fondoPoolDestino = new Rectangle(
+                -8,
+                0,
+                (int)(pool.Width * escalaFondo),
+                (int)(fondoPoolOrigen.Height * escalaFondo)
+                );
+                _spriteBatch.Draw(pool, fondoPoolDestino, fondoPoolOrigen, Color.White);
+
+                Rectangle aguaPoolOrigen = new Rectangle(11, 912, 710, 158);
+                Rectangle aguaPoolDestino = new Rectangle(
+                fondoPoolDestino.X + (int)(254 * escalaFondo),
+                fondoPoolDestino.Y + (int)((302 - fondoPoolOrigen.Y) * escalaFondo),
+                (int)(727 * escalaFondo),
+                (int)(176 * escalaFondo)
+                );
+                _spriteBatch.Draw(pool, aguaPoolDestino, aguaPoolOrigen, Color.White);
+            }
+            else
+            {
+                _spriteBatch.Draw(
+                background,
+                new Vector2(0, -10),
+                null,
+                Color.White,
+                0f,
+                new Vector2(10, 25),
+                0.8f,
+                SpriteEffects.None,
+                0f
+                );
+            }
+
+            // FIOLINA
+            if (moviendo)
+            {
+                _spriteBatch.Draw(
+                superviviente,
+                posicionFiolina,
+                sourceRectangles[currentAnimationIndex],
+                Color.White
+                );
+            }
+            else
+            {
+                _spriteBatch.Draw(
+                superviviente,
+                posicionFiolina,
+                spriteQuieto,
+                Color.White
+                );
+            }
+
+            // ZOMBIE NORMAL (El primero de fondo rosa, animado)
+            _spriteBatch.Draw(
+            zombie,
+            posicionZombie,
+            sourceRectanglesZombie[currentZombieAnimationIndex],
+            Color.White
+            );
+
+            // ZOMBIE SALVAJE (El último, animado con Y=529)
+            _spriteBatch.Draw(
+            Zombiesas,
+            posicionZombieSal,
+            sourceRectanglesZombieSal[currentZombieSalAnimationIndex],
+            Color.White
+            );
+
+            // ZOMBIE TANQUE
+            _spriteBatch.Draw(
+            ZombieTank,
+            posicionZombieTank,
+            ZTquieto,
+            Color.White
+            );
+
+            // ITEMS
+            _spriteBatch.Draw(
+            Items,
+            posicionItem,
+            ItemV,
+            Color.White
+            );
+
+            // BARRA DE STAMINA
+            _spriteBatch.Draw(
+            barraST,
+            new Vector2(20, 425),
+            barraSTAM,
+            Color.White
+            );
+
+            // BARRA DE VIDA
+            if (hitboxJugador.Intersects(hitboxZombieSal))
+            {
+                _spriteBatch.Draw(barraVIDA, new Vector2(100, 50), barraVIDA2, Color.White);
+                if (hitboxJugador.Intersects(hitboxZombieSal))
+                {
+                    _spriteBatch.Draw(barraVIDA, new Vector2(100, 50), barraVIDA3, Color.White);
+                }
+            }
+            else
+            {
+                _spriteBatch.Draw(barraVIDA, new Vector2(100, 50), barraVIDA1, Color.White);
+            }
+
+            if (hitboxJugador.Intersects(hitboxZombie))
+            {
+                _spriteBatch.Draw(barraVIDA, new Vector2(100, 50), barraVIDA2, Color.White);
+                if (hitboxJugador.Intersects(hitboxZombie))
+                {
+                    _spriteBatch.Draw(barraVIDA, new Vector2(100, 50), barraVIDA3, Color.White);
+                }
+            }
+            else
+            {
+                _spriteBatch.Draw(barraVIDA, new Vector2(100, 50), barraVIDA1, Color.White);
+            }
+
+            if (hitboxJugador.Intersects(hitboxZombieTank))
+            {
+                _spriteBatch.Draw(barraVIDA, new Vector2(100, 50), barraVIDA2, Color.White);
+                if (hitboxJugador.Intersects(hitboxZombieTank))
+                {
+                    _spriteBatch.Draw(barraVIDA, new Vector2(100, 50), barraVIDA3, Color.White);
+                }
+            }
+            else
+            {
+                _spriteBatch.Draw(barraVIDA, new Vector2(100, 50), barraVIDA1, Color.White);
+            }
+
+            // HITBOXES DEBUG
+            _spriteBatch.Draw(debugTexture, hitboxJugador, Color.White * 0.4f);
+            _spriteBatch.Draw(debugTexture, hitboxZombie, Color.White * 0.4f);
+            _spriteBatch.Draw(debugTexture, hitboxZombieSal, Color.White * 0.4f);
+            _spriteBatch.Draw(debugTexture, hitboxZombieTank, Color.White * 0.4f);
+            _spriteBatch.Draw(debugTexture, hitboxItem, Color.White);
+
+            _spriteBatch.End();
+            base.Draw(gameTime);
+        }
+    }
+}
+
