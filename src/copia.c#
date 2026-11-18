@@ -66,6 +66,9 @@ namespace Projectses
         private Song backgroundMusic;
         private Song musicaNivelDos;
         private Song MusicaMenu;
+        //letra
+        private SpriteFont TipoLetra;
+
         bool slowfiolina;
         bool slowzombie;
         bool slowzombieSalvaje;
@@ -280,9 +283,14 @@ namespace Projectses
             musicaNivelDos = Content.Load<Song>("musica/24. Watery Graves");
             MusicaMenu = Content.Load<Song>("musica/MusicaMenu");
 
+
             MediaPlayer.IsRepeating = false;
 
             MediaPlayer.Play(MusicaMenu);
+
+
+            //LETRA
+            TipoLetra = Content.Load<SpriteFont>("fuente/TipoLetra");
 
             // CONFIGURACION DE ANIMACION
             timer = 0;
@@ -1277,6 +1285,15 @@ namespace Projectses
                     ),
                     Color.White
                 );
+                string textoGameOver = "perdiste we intentalo otra vez";
+
+                _spriteBatch.DrawString(
+                    TipoLetra,
+                    textoGameOver,
+                    new Vector2(20, GraphicsDevice.Viewport.Height - 40),
+                    Color.White
+                );
+
                 _spriteBatch.End();
                 base.Draw(gameTime);
                 return;
