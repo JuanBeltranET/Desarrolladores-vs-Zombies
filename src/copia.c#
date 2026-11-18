@@ -69,7 +69,6 @@ namespace Projectses
         bool slowfiolina;
         bool slowzombie;
         bool slowzombieSalvaje;
-        bool slowzombieTank;
 
         // Estados del juego
         enum EstadoJuego
@@ -528,14 +527,7 @@ namespace Projectses
 
             }
 
-            if (slowzombieTank == true)
-            {
-                velocidadZombieTank = 12f;
-            }
-            else
-            {
-                velocidadZombieTank = 35f;
-            }
+          
 
             // Menu nuevo vacio: Enter conserva el acceso al juego base y Back vuelve al menu principal.
             if (estadoActual == EstadoJuego.MenuNuevo)
@@ -944,15 +936,7 @@ namespace Projectses
                 slowzombieSalvaje = false;
             }
 
-            if (hitboxZombieTank.Intersects(hitboxAgua))
-            {
-                slowzombieTank = true;
-
-            }
-            else
-            {
-                slowzombieTank = false;
-            }
+      
 
 
 
