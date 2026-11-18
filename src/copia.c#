@@ -8,7 +8,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Media;
 
-namespace Project2
+namespace Projectses
 {
     public class Game1 : Game
     {
@@ -54,8 +54,11 @@ namespace Project2
         private Texture2D panelInventario;
         private Texture2D spriteEspada;
         private Texture2D spriteManzana;
+        private Texture2D pistola;
+
         private Texture2D spriteEspadaSecundaria;
         private bool inventarioVisible;
+        private bool pistolaSeleccionada;
         private Rectangle[] framesZombie;
         private Rectangle[] framesZombieSalvaje;
         private Rectangle[] framesZombieTanque;
@@ -63,7 +66,10 @@ namespace Project2
         private Song backgroundMusic;
         private Song musicaNivelDos;
         private Song MusicaMenu;
-        bool slow;
+        bool slowfiolina;
+        bool slowzombie;
+        bool slowzombieSalvaje;
+        bool slowzombieTank;
 
         // Estados del juego
         enum EstadoJuego
@@ -268,6 +274,7 @@ namespace Project2
             spriteManzana = Content.Load<Texture2D>("imagenes/manzana");
             spriteEspadaSecundaria = Content.Load<Texture2D>("imagenes/Espada2");
             atacar = Content.Load<Texture2D>("imagenes/atacar"); // FFED1C24
+            pistola = Content.Load<Texture2D>("imagenes/pistola");
 
             // MUSICA
             backgroundMusic = Content.Load<Song>("musica/04. Grasswalk");
@@ -488,9 +495,46 @@ namespace Project2
             }
 
             //lentitud del agua
-            if (slow == true)
+            if (slowfiolina == true)
             {
-                velocidadFiolina = 1;
+                velocidadFiolina = 50f;
+                
+            }
+            else
+            {
+                velocidadFiolina = 150f;
+              
+            }
+
+            if (slowzombie == true)
+            {
+                velocidadZombie = 22f;
+
+            }
+            else
+            {
+                velocidadZombie = 65f;
+
+            }
+
+            if (slowzombieSalvaje == true)
+            {
+                velocidadZombieSal = 30f;
+
+            }
+            else
+            {
+                velocidadZombieSal = 90f;
+
+            }
+
+            if (slowzombieTank == true)
+            {
+                velocidadZombieTank = 12f;
+            }
+            else
+            {
+                velocidadZombieTank = 35f;
             }
 
             // Menu nuevo vacio: Enter conserva el acceso al juego base y Back vuelve al menu principal.
@@ -590,11 +634,24 @@ namespace Project2
             if (teclado.IsKeyDown(Keys.X) && tecladoAnterior.IsKeyUp(Keys.X))
             {
                 inventarioVisible = !inventarioVisible;
+                if (!inventarioVisible)
+                {
+                    pistolaSeleccionada = false;
+                }
+            }
+
+            // Seleccionar la pistola con 1 solo si el inventario está visible.
+            if (inventarioVisible && teclado.IsKeyDown(Keys.D1) &&
+                tecladoAnterior.IsKeyUp(Keys.D1))
+            {
+                pistolaSeleccionada = true;
             }
 
             tecladoAnterior = teclado;
 
             mouseAnterior = mouseActual;
+
+           
 
             // Al perder, muestra Game Over durante cinco segundos y vuelve al menu.
             if (vidaJugador <= 0)
@@ -859,16 +916,47 @@ namespace Project2
             //colicion agua
             if (hitboxJugador.Intersects(hitboxAgua))
             {
-                slow = true;
-                    
+                slowfiolina = true;
+
             }
             else
             {
-                slow = false;
+                slowfiolina = false;
+            }
+
+            if (hitboxZombie.Intersects(hitboxAgua))
+            {
+                slowzombie = true;
+
+            }
+            else
+            {
+                slowzombie = false;
+            }
+
+            if (hitboxZombieSal.Intersects(hitboxAgua))
+            {
+                slowzombieSalvaje = true;
+
+            }
+            else
+            {
+                slowzombieSalvaje = false;
+            }
+
+            if (hitboxZombieTank.Intersects(hitboxAgua))
+            {
+                slowzombieTank = true;
+
+            }
+            else
+            {
+                slowzombieTank = false;
             }
 
 
-                base.Update(gameTime);
+
+            base.Update(gameTime);
         }
 
         // DIBUJAR MENU
@@ -1414,6 +1502,21 @@ namespace Project2
                         Color.White
                     );
                 }
+            }
+
+            // Dibujar la pistola delante de Fiolina solo si fue seleccionada con el inventario abierto.
+            if (inventarioVisible && pistolaSeleccionada)
+            {
+                _spriteBatch.Draw(
+                    pistola,
+                    new Rectangle(
+                        (int)posicionFiolina.X + 20,
+                        (int)posicionFiolina.Y + 24,
+                        30,
+                        15
+                    ),
+                    Color.White
+                );
             }
 
             // HITBOXES
