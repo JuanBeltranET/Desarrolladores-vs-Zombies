@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -54,8 +54,18 @@ namespace Project2
         private Texture2D panelInventario;
         private Texture2D spriteEspada;
         private Texture2D spriteManzana;
+        private Texture2D pistola;
+        private Texture2D proyectilPistola;
+
         private Texture2D spriteEspadaSecundaria;
         private bool inventarioVisible;
+        private bool pistolaSeleccionada;
+        private bool espadaSeleccionada;
+        private bool ataqueEspadaActivo;
+        private float tiempoAtaqueEspada;
+        private bool proyectilPistolaActivo;
+        private Vector2 posicionProyectilPistola;
+        private const float VelocidadProyectilPistola = 500f;
         private Rectangle[] framesZombie;
         private Rectangle[] framesZombieSalvaje;
         private Rectangle[] framesZombieTanque;
@@ -63,6 +73,12 @@ namespace Project2
         private Song backgroundMusic;
         private Song musicaNivelDos;
         private Song MusicaMenu;
+        //letra
+        private SpriteFont TipoLetra;
+
+        bool slowfiolina;
+        bool slowzombie;
+        bool slowzombieSalvaje;
 
         // Estados del juego
         enum EstadoJuego
@@ -75,6 +91,7 @@ namespace Project2
 
         EstadoJuego estadoActual = EstadoJuego.Menu;
         bool nivelDosSeleccionado;
+        private bool aguaNivelDosActiva;
 
         // Boton Jugar
         Rectangle rectBotonJugar;
@@ -94,6 +111,8 @@ namespace Project2
         Rectangle hitboxZombieSal = new Rectangle(300, 100, 45, 57);
         Rectangle hitboxZombieTank = new Rectangle(500, 100, 35, 57);
         Rectangle hitboxItem = new Rectangle(550, 75, 64, 64);
+        Rectangle hitboxAgua = new Rectangle(199, 203, 580, 150);
+        Rectangle hitboxEspada;
 
         // Limites del pasto
         Rectangle limitesPasto = new Rectangle(160, 30, 625, 420);
@@ -141,6 +160,7 @@ namespace Project2
         // Estado de movimiento
         bool moviendo = false;
 
+
         // Sprite de Fiolina quieta
         Rectangle spriteQuieto = new Rectangle(71, 3, 29, 50);
 
@@ -173,6 +193,22 @@ namespace Project2
             debugTexture = new Texture2D(GraphicsDevice, 1, 1);
 
             debugTexture.SetData(new[] { Color.Red });
+
+            // Textura ovalada amarilla para el disparo de la pistola.
+            proyectilPistola = new Texture2D(GraphicsDevice, 20, 12);
+            Color[] pixelesProyectil = new Color[20 * 12];
+            for (int y = 0; y < 12; y++)
+            {
+                for (int x = 0; x < 20; x++)
+                {
+                    float dx = (x - 9.5f) / 9.5f;
+                    float dy = (y - 5.5f) / 5.5f;
+                    pixelesProyectil[y * 20 + x] = dx * dx + dy * dy <= 1f
+                        ? Color.Yellow
+                        : Color.Transparent;
+                }
+            }
+            proyectilPistola.SetData(pixelesProyectil);
 
             // CARGAR IMAGENES DEL JUEGO
             zombie = Content.Load<Texture2D>("imagenes/Zombie");
@@ -265,15 +301,21 @@ namespace Project2
             spriteManzana = Content.Load<Texture2D>("imagenes/manzana");
             spriteEspadaSecundaria = Content.Load<Texture2D>("imagenes/Espada2");
             atacar = Content.Load<Texture2D>("imagenes/atacar"); // FFED1C24
+            pistola = Content.Load<Texture2D>("imagenes/pistola");
 
             // MUSICA
             backgroundMusic = Content.Load<Song>("musica/04. Grasswalk");
             musicaNivelDos = Content.Load<Song>("musica/24. Watery Graves");
             MusicaMenu = Content.Load<Song>("musica/MusicaMenu");
 
+
             MediaPlayer.IsRepeating = false;
 
             MediaPlayer.Play(MusicaMenu);
+
+
+            //LETRA
+            TipoLetra = Content.Load<SpriteFont>("fuente/TipoLetra");
 
             // CONFIGURACION DE ANIMACION
             timer = 0;
@@ -327,6 +369,14 @@ namespace Project2
             staminaActual = StaminaMaximaSegundos;
             staminaRecuperando = false;
             inventarioVisible = false;
+            pistolaSeleccionada = false;
+            espadaSeleccionada = false;
+            ataqueEspadaActivo = false;
+            tiempoAtaqueEspada = 0f;
+            proyectilPistolaActivo = false;
+            slowfiolina = false;
+            slowzombie = false;
+            slowzombieSalvaje = false;
             vidaJugador = VidaMaxima;
             tiempoGameOverRestante = 5f;
         }
@@ -334,10 +384,31 @@ namespace Project2
         private void IniciarJuego(bool usarFondoPool)
         {
             nivelDosSeleccionado = usarFondoPool;
+            aguaNivelDosActiva = usarFondoPool;
             estadoActual = EstadoJuego.Jugando;
             MediaPlayer.IsRepeating = true;
             MediaPlayer.Play(nivelDosSeleccionado ? musicaNivelDos : backgroundMusic);
             ReiniciarPosiciones();
+        }
+
+        private Rectangle ObtenerRectanguloAguaNivelDos()
+        {
+            const float escalaFondo = 0.8f;
+            Rectangle fondoPoolOrigen = new Rectangle(0, 37, pool.Width, 600);
+            Rectangle fondoPoolDestino = new Rectangle(
+                -8,
+                0,
+                (int)(pool.Width * escalaFondo),
+                (int)(fondoPoolOrigen.Height * escalaFondo)
+            );
+            Rectangle aguaPoolOrigen = new Rectangle(11, 912, 710, 158);
+
+            return new Rectangle(
+                fondoPoolDestino.X + (int)(254 * escalaFondo),
+                fondoPoolDestino.Y + (int)((302 - fondoPoolOrigen.Y) * escalaFondo),
+                (int)(727 * escalaFondo),
+                (int)(176 * escalaFondo)
+            );
         }
 
         // METODO PARA PERSEGUIR A FIOLINA
@@ -484,6 +555,13 @@ namespace Project2
                 return;
             }
 
+            //lentitud del agua
+            velocidadFiolina = slowfiolina ? 150f * 0.7f : 150f;
+            velocidadZombie = slowzombie ? 65f * 0.7f : 65f;
+            velocidadZombieSal = slowzombieSalvaje ? 90f * 0.7f : 90f;
+
+
+
             // Menu nuevo vacio: Enter conserva el acceso al juego base y Back vuelve al menu principal.
             if (estadoActual == EstadoJuego.MenuNuevo)
             {
@@ -583,9 +661,65 @@ namespace Project2
                 inventarioVisible = !inventarioVisible;
             }
 
+            // Seleccionar la pistola con 1 solo si el inventario está visible.
+            if (inventarioVisible && teclado.IsKeyDown(Keys.D1) &&
+                tecladoAnterior.IsKeyUp(Keys.D1))
+            {
+                pistolaSeleccionada = true;
+                espadaSeleccionada = false;
+            }
+
+            // Seleccionar la espada de la primera casilla con 2.
+            if (inventarioVisible && teclado.IsKeyDown(Keys.D2) &&
+                tecladoAnterior.IsKeyUp(Keys.D2))
+            {
+                espadaSeleccionada = true;
+                pistolaSeleccionada = false;
+            }
+
+            float tiempo = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            if (ataqueEspadaActivo)
+            {
+                tiempoAtaqueEspada -= tiempo;
+                if (tiempoAtaqueEspada <= 0f)
+                {
+                    ataqueEspadaActivo = false;
+                }
+            }
+
+            // C activa un golpe de espada de 0,25 s solo si la espada está equipada.
+            if (espadaSeleccionada && teclado.IsKeyDown(Keys.C) &&
+                tecladoAnterior.IsKeyUp(Keys.C))
+            {
+                ataqueEspadaActivo = true;
+                tiempoAtaqueEspada = 0.25f;
+            }
+
+            // Dispara el proyectil hacia la derecha al pulsar C con la pistola seleccionada.
+            if (pistolaSeleccionada && teclado.IsKeyDown(Keys.C) &&
+                tecladoAnterior.IsKeyUp(Keys.C))
+            {
+                proyectilPistolaActivo = true;
+                posicionProyectilPistola = new Vector2(
+                    posicionFiolina.X + 30,
+                    posicionFiolina.Y + 18
+                );
+            }
+
+            if (proyectilPistolaActivo)
+            {
+                posicionProyectilPistola.X += VelocidadProyectilPistola * tiempo;
+                if (posicionProyectilPistola.X > GraphicsDevice.Viewport.Width)
+                {
+                    proyectilPistolaActivo = false;
+                }
+            }
+
             tecladoAnterior = teclado;
 
             mouseAnterior = mouseActual;
+
+
 
             // Al perder, muestra Game Over durante cinco segundos y vuelve al menu.
             if (vidaJugador <= 0)
@@ -609,9 +743,6 @@ namespace Project2
             }
 
             // MOVIMIENTO DEL JUEGO
-            float tiempo =
-                (float)gameTime.ElapsedGameTime.TotalSeconds;
-
             moviendo = false;
 
             bool hayMovimientoSolicitado = teclado.IsKeyDown(Keys.Right) ||
@@ -783,6 +914,13 @@ namespace Project2
                 PerseguirJugador(ref posicionZombieTank, ref hitboxZombieTank, velocidadZombieTank, tiempo);
             }
 
+            // Hitbox temporal del golpe: 25 px de ancho y la misma altura que Fiolina.
+            hitboxEspada = new Rectangle(
+                hitboxJugador.Right,
+                hitboxJugador.Y,
+                25,
+                hitboxJugador.Height
+            );
             ActualizarAnimacionZombie(
                 zombieActivo, tiempo, ref timerZombie, ref frameZombie, framesZombie.Length
             );
@@ -846,6 +984,46 @@ namespace Project2
 
                 velocidadActual *= 2000000;
             }
+
+            //colicion agua
+            if (aguaNivelDosActiva)
+            {
+                hitboxAgua = ObtenerRectanguloAguaNivelDos();
+            }
+
+            if (aguaNivelDosActiva && hitboxJugador.Intersects(hitboxAgua))
+            {
+                slowfiolina = true;
+
+            }
+            else
+            {
+                slowfiolina = false;
+            }
+
+            if (aguaNivelDosActiva && hitboxZombie.Intersects(hitboxAgua))
+            {
+                slowzombie = true;
+
+            }
+            else
+            {
+                slowzombie = false;
+            }
+
+            if (aguaNivelDosActiva && hitboxZombieSal.Intersects(hitboxAgua))
+            {
+                slowzombieSalvaje = true;
+
+            }
+            else
+            {
+                slowzombieSalvaje = false;
+            }
+
+
+
+
 
             base.Update(gameTime);
         }
@@ -1184,6 +1362,15 @@ namespace Project2
                     ),
                     Color.White
                 );
+                string textoGameOver = "perdiste we intentalo otra vez";
+
+                _spriteBatch.DrawString(
+                    TipoLetra,
+                    textoGameOver,
+                    new Vector2(20, GraphicsDevice.Viewport.Height - 40),
+                    Color.White
+                );
+
                 _spriteBatch.End();
                 base.Draw(gameTime);
                 return;
@@ -1243,12 +1430,7 @@ namespace Project2
                 _spriteBatch.Draw(pool, fondoPoolDestino, fondoPoolOrigen, Color.White);
 
                 Rectangle aguaPoolOrigen = new Rectangle(11, 912, 710, 158);
-                Rectangle aguaPoolDestino = new Rectangle(
-                    fondoPoolDestino.X + (int)(254 * escalaFondo),
-                    fondoPoolDestino.Y + (int)((302 - fondoPoolOrigen.Y) * escalaFondo),
-                    (int)(727 * escalaFondo),
-                    (int)(176 * escalaFondo)
-                );
+                Rectangle aguaPoolDestino = ObtenerRectanguloAguaNivelDos();
                 _spriteBatch.Draw(pool, aguaPoolDestino, aguaPoolOrigen, Color.White);
             }
             else
@@ -1360,11 +1542,18 @@ namespace Project2
                 );
 
                 const int tamanoIcono = 32;
+                // Recorta el extremo derecho, donde aparece el óvalo amarillo.
+                Rectangle recortePistola = new Rectangle(
+                    0,
+                    0,
+                    pistola.Width / 2,
+                    pistola.Height
+                );
                 Texture2D[] iconosInventario =
                 {
-                    spriteEspada,
+                    spriteEspadaSecundaria,
                     spriteManzana,
-                    spriteEspadaSecundaria
+                    pistola
                 };
 
                 for (int i = 0; i < iconosInventario.Length; i++)
@@ -1374,23 +1563,83 @@ namespace Project2
                     int iconoX = centroCasillaX - tamanoIcono / 2;
                     int iconoY = centroCasillaY - tamanoIcono / 2;
 
-                    // Compensa el margen transparente de las hojas de las espadas;
-                    // la manzana ya queda centrada sin ajuste.
+                    // Compensa el margen transparente de la espada de hierro.
                     if (i == 0)
                     {
                         iconoX += 5;
                     }
-                    else if (i == 2)
-                    {
-                        iconoX -= 5;
-                    }
 
-                    _spriteBatch.Draw(
-                        iconosInventario[i],
-                        new Rectangle(iconoX, iconoY, tamanoIcono, tamanoIcono),
-                        Color.White
+                    Rectangle destinoIcono = new Rectangle(
+                        iconoX,
+                        iconoY,
+                        tamanoIcono,
+                        tamanoIcono
                     );
+                    if (i == 2)
+                    {
+                        _spriteBatch.Draw(
+                            pistola,
+                            destinoIcono,
+                            recortePistola,
+                            Color.White
+                        );
+                    }
+                    else
+                    {
+                        _spriteBatch.Draw(iconosInventario[i], destinoIcono, Color.White);
+                    }
                 }
+            }
+
+            // El arma equipada se dibuja junto a Fiolina usando su posición actual.
+            if (espadaSeleccionada)
+            {
+                _spriteBatch.Draw(
+                    spriteEspadaSecundaria,
+                    new Rectangle(
+                        (int)posicionFiolina.X + 24,
+                        (int)posicionFiolina.Y + 16,
+                        20,
+                        20
+                    ),
+                    Color.White
+                );
+            }
+
+            // Dibujar la pistola equipada delante de Fiolina, incluso con el inventario cerrado.
+            if (pistolaSeleccionada)
+            {
+                _spriteBatch.Draw(
+                    pistola,
+                    new Rectangle(
+                        (int)posicionFiolina.X + 20,
+                        (int)posicionFiolina.Y + 18,
+                        30,
+                        15
+                    ),
+                    new Rectangle(0, 0, pistola.Width / 2, pistola.Height),
+                    Color.White
+                );
+            }
+
+            if (proyectilPistolaActivo)
+            {
+                _spriteBatch.Draw(
+                    proyectilPistola,
+                    new Rectangle(
+                        (int)posicionProyectilPistola.X,
+                        (int)posicionProyectilPistola.Y,
+                        20,
+                        12
+                    ),
+                    Color.White
+                );
+            }
+
+            // Mostrar en rojo la hitbox de la espada únicamente durante el golpe.
+            if (ataqueEspadaActivo)
+            {
+                _spriteBatch.Draw(debugTexture, hitboxEspada, Color.Red * 0.45f);
             }
 
             // HITBOXES
