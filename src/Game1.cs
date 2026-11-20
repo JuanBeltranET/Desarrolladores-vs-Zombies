@@ -86,8 +86,7 @@ namespace Project2
             Menu,
             Opciones,
             MenuNuevo,
-            Jugando,
-            Pausa
+            Jugando
         }
 
         EstadoJuego estadoActual = EstadoJuego.Menu;
@@ -99,10 +98,6 @@ namespace Project2
         Rectangle rectOpciones;
         Rectangle spriteBotonJugarNormal;
         Rectangle spriteBotonJugarHover;
-
-        // Botones del menu de pausa
-        Rectangle rectBotonContinuarPausa;
-        Rectangle rectBotonSalirPausa;
 
         // Control del mouse
         MouseState mouseAnterior;
@@ -260,7 +255,6 @@ namespace Project2
             logo = Content.Load<Texture2D>("imagenes/logo");
             botonJugar = Content.Load<Texture2D>("imagenes/seleccionar");
             // Cada fotograma ocupa un cuadro del ancho de la textura; hay espacio entre ambos.
-
             int altoFrameBotonJugar = botonJugar.Width;
             spriteBotonJugarHover = new Rectangle(
                 0,
