@@ -8,7 +8,7 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Media;
 
-namespace Projectses
+namespace Project2
 {
     public class Game1 : Game
     {
@@ -32,6 +32,7 @@ namespace Projectses
         private Texture2D nivel1texto;
         private Texture2D nivel2texto;
         private Texture2D pool;
+        private Texture2D Tumba;
         // private Texture2D inventario;
         // Imagenes del menu //
         private Texture2D fondoMenu;
@@ -76,8 +77,7 @@ namespace Projectses
         private SpriteFont TipoLetra;
 
         bool slowfiolina;
-        bool slowzombie;
-        bool slowzombieSalvaje;
+        
 
         // Estados del juego
         enum EstadoJuego
@@ -307,6 +307,7 @@ namespace Projectses
             spriteEspadaSecundaria = Content.Load<Texture2D>("imagenes/Espada2");
             atacar = Content.Load<Texture2D>("imagenes/atacar"); // FFED1C24
             pistola = Content.Load<Texture2D>("imagenes/pistola");
+            Tumba = Content.Load<Texture2D>("imagenes/Tumba");
 
             // MUSICA
             backgroundMusic = Content.Load<Song>("musica/04. Grasswalk");
@@ -320,7 +321,7 @@ namespace Projectses
 
 
             //LETRA
-            TipoLetra = Content.Load<SpriteFont>("fuente/TipoLetra");
+            TipoLetra = Content.Load<SpriteFont>("fuente/File");
 
             // CONFIGURACION DE ANIMACION
             timer = 0;
@@ -383,8 +384,6 @@ namespace Projectses
             tiempoAtaqueEspada = 0f;
             proyectilPistolaActivo = false;
             slowfiolina = false;
-            slowzombie = false;
-            slowzombieSalvaje = false;
             vidaJugador = VidaMaxima;
             tiempoGameOverRestante = 5f;
         }
@@ -518,6 +517,8 @@ namespace Projectses
             return true;
         }
 
+       
+
         private void DibujarBarraVidaZombie(Rectangle hitbox, int vida, int vidaMaxima)
         {
             const int altoBarra = 5;
@@ -609,12 +610,11 @@ namespace Projectses
                 return;
             }
 
+
+
+
             //lentitud del agua
             velocidadFiolina = slowfiolina ? 150f * 0.56f : 150f;
-            velocidadZombie = slowzombie ? 65f * 0.56f : 85f;
-            velocidadZombieSal = slowzombieSalvaje ? 90f * 0.56f : 90f;
-
-
 
             // Menu nuevo vacio: Enter conserva el acceso al juego base y Back vuelve al menu principal.
             if (estadoActual == EstadoJuego.MenuNuevo)
@@ -747,6 +747,16 @@ namespace Projectses
             {
                 ataqueEspadaActivo = true;
                 tiempoAtaqueEspada = 0.25f;
+            }
+
+            if (hitboxJugador.Intersects(hitboxItem))
+            {
+                if (espadaSeleccionada && teclado.IsKeyDown(Keys.C) &&
+                tecladoAnterior.IsKeyUp(Keys.C))
+                {
+                    ataqueEspadaActivo = true;
+                    tiempoAtaqueEspada = 0.10f;
+                }
             }
 
             // Dispara el proyectil hacia la derecha al pulsar C con la pistola seleccionada.
@@ -980,26 +990,7 @@ namespace Projectses
                 slowfiolina = false;
             }
 
-            if (hitboxZombie.Intersects(hitboxAgua))
-            {
-                slowzombie = true;
-
-            }
-            else
-            {
-                slowzombie = false;
-            }
-
-            if (hitboxZombieSal.Intersects(hitboxAgua))
-            {
-                slowzombieSalvaje = true;
-
-            }
-            else
-            {
-                slowzombieSalvaje = false;
-            }
-
+           
 
             // Hitbox temporal del golpe: 25 px de ancho y la misma altura que Fiolina.
             hitboxEspada = new Rectangle(
@@ -1089,13 +1080,7 @@ namespace Projectses
                 45
             );
 
-            //colicion Item
-            if (hitboxJugador.Intersects(hitboxItem))
-            {
-                Debug.WriteLine("colicion");
-
-                velocidadActual *= 2000000;
-            }
+            
 
             //colicion agua
             if (aguaNivelDosActiva)
@@ -1113,29 +1098,7 @@ namespace Projectses
                 slowfiolina = false;
             }
 
-            if (aguaNivelDosActiva && hitboxZombie.Intersects(hitboxAgua))
-            {
-                slowzombie = true;
-
-            }
-            else
-            {
-                slowzombie = false;
-            }
-
-            if (aguaNivelDosActiva && hitboxZombieSal.Intersects(hitboxAgua))
-            {
-                slowzombieSalvaje = true;
-
-            }
-            else
-            {
-                slowzombieSalvaje = false;
-            }
-
-
-
-
+         
 
             base.Update(gameTime);
         }
@@ -1462,7 +1425,7 @@ namespace Projectses
                 GraphicsDevice.Clear(Color.Black);
                 _spriteBatch.Begin();
 
-                
+
                 string textoGameOver = "FIN DEL LA PARTIDA";
                 string textoestadisticas = "Zombies eliminados:";
                 string textoestadisticas2 = "Zombies tiempo sobrevivido:";
