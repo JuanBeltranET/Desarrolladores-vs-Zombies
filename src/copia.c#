@@ -113,6 +113,7 @@ namespace Projectses
         Rectangle hitboxAgua = new Rectangle(199, 203, 580, 150);
         Rectangle hitboxEspada;
 
+
         // Limites del pasto
         Rectangle limitesPasto = new Rectangle(160, 30, 625, 420);
 
@@ -142,6 +143,12 @@ namespace Projectses
         private int vidaJugador = VidaMaxima;
         private float tiempoGameOverRestante = 5f;
         private readonly Random random = new Random();
+        private const int VidaMaximaZombie = 2;
+        private const int VidaMaximaZombieSalvaje = 3;
+        private const int VidaMaximaZombieTanque = 5;
+        private int vidaZombie = VidaMaximaZombie;
+        private int vidaZombieSalvaje = VidaMaximaZombieSalvaje;
+        private int vidaZombieTanque = VidaMaximaZombieTanque;
         private bool zombieActivo;
         private bool zombieSalvajeActivo;
         private bool zombieTanqueActivo;
@@ -348,6 +355,9 @@ namespace Projectses
             zombieActivo = false;
             zombieSalvajeActivo = false;
             zombieTanqueActivo = false;
+            vidaZombie = VidaMaximaZombie;
+            vidaZombieSalvaje = VidaMaximaZombieSalvaje;
+            vidaZombieTanque = VidaMaximaZombieTanque;
             timerZombie = 0f;
             timerZombieSalvaje = 0f;
             timerZombieTanque = 0f;
@@ -451,6 +461,8 @@ namespace Projectses
             ref float tiempoAparicion,
             ref Vector2 posicion,
             ref Rectangle hitbox,
+            ref int vida,
+            int vidaMaxima,
             int ancho,
             int alto,
             float tiempo)
@@ -471,12 +483,56 @@ namespace Projectses
             int x = GraphicsDevice.Viewport.Width + random.Next(20, 121);
             posicion = new Vector2(x, y);
             hitbox = new Rectangle(x, y, ancho, alto);
+            vida = vidaMaxima;
             activo = true;
         }
 
         private float TiempoHastaProximaAparicion(int minimo, int maximo)
         {
             return minimo + (float)random.NextDouble() * (maximo - minimo);
+        }
+
+        private bool AplicarDanoPorProyectil(
+            Rectangle hitboxProyectil,
+            Rectangle hitboxZombie,
+            ref bool activo,
+            ref int vida,
+            ref float tiempoAparicion,
+            int minimoRespawn,
+            int maximoRespawn)
+        {
+            if (!activo || !hitboxProyectil.Intersects(hitboxZombie))
+            {
+                return false;
+            }
+
+            vida = Math.Max(0, vida - 1);
+            Debug.WriteLine($"Zombie alcanzado; vida restante: {vida}");
+            if (vida == 0)
+            {
+                activo = false;
+                tiempoAparicion = TiempoHastaProximaAparicion(minimoRespawn, maximoRespawn);
+                Debug.WriteLine("Zombie eliminado");
+            }
+
+            return true;
+        }
+
+        private void DibujarBarraVidaZombie(Rectangle hitbox, int vida, int vidaMaxima)
+        {
+            const int altoBarra = 5;
+            Rectangle fondo = new Rectangle(hitbox.X, hitbox.Y - altoBarra - 2, hitbox.Width, altoBarra);
+            _spriteBatch.Draw(debugTexture, fondo, Color.Black);
+
+            int anchoVida = hitbox.Width * vida / vidaMaxima;
+            if (anchoVida > 0)
+            {
+                _spriteBatch.Draw(
+                    debugTexture,
+                    new Rectangle(hitbox.X, hitbox.Y - altoBarra - 2, anchoVida, altoBarra),
+                    Color.White
+                );
+            }
         }
 
         private void ActualizarAnimacionZombie(
@@ -554,40 +610,9 @@ namespace Projectses
             }
 
             //lentitud del agua
-
-
-            if (slowfiolina == true)
-            {
-                velocidadFiolina = 50f;
-
-            }
-            else
-            {
-                velocidadFiolina = 150f;
-
-            }
-
-            if (slowzombie == true)
-            {
-                velocidadZombie = 22f;
-
-            }
-            else
-            {
-                velocidadZombie = 65f;
-
-            }
-
-            if (slowzombieSalvaje == true)
-            {
-                velocidadZombieSal = 30f;
-
-            }
-            else
-            {
-                velocidadZombieSal = 90f;
-
-            }
+            velocidadFiolina = slowfiolina ? 150f * 0.56f : 150f;
+            velocidadZombie = slowzombie ? 65f * 0.56f : 85f;
+            velocidadZombieSal = slowzombieSalvaje ? 90f * 0.56f : 90f;
 
 
 
@@ -918,15 +943,15 @@ namespace Projectses
             // Apariciones infinitas: los normales aparecen mas seguido que los otros tipos.
             ActualizarAparicionZombie(
                 ref zombieActivo, ref tiempoAparicionZombie, ref posicionZombie,
-                ref hitboxZombie, 35, 50, tiempo
+                ref hitboxZombie, ref vidaZombie, VidaMaximaZombie, 35, 50, tiempo
             );
             ActualizarAparicionZombie(
                 ref zombieSalvajeActivo, ref tiempoAparicionSalvaje, ref posicionZombieSal,
-                ref hitboxZombieSal, 45, 57, tiempo
+                ref hitboxZombieSal, ref vidaZombieSalvaje, VidaMaximaZombieSalvaje, 45, 57, tiempo
             );
             ActualizarAparicionZombie(
                 ref zombieTanqueActivo, ref tiempoAparicionTanque, ref posicionZombieTank,
-                ref hitboxZombieTank, 35, 57, tiempo
+                ref hitboxZombieTank, ref vidaZombieTanque, VidaMaximaZombieTanque, 35, 57, tiempo
             );
 
             // Perseguir al jugador solo cuando cada zombie esta activo.
@@ -994,6 +1019,31 @@ namespace Projectses
                 zombieTanqueActivo, tiempo, ref timerZombieTanque,
                 ref frameZombieTanque, framesZombieTanque.Length
             );
+
+            if (proyectilPistolaActivo)
+            {
+                Rectangle hitboxProyectil = new Rectangle(
+                    (int)posicionProyectilPistola.X,
+                    (int)posicionProyectilPistola.Y,
+                    20,
+                    12
+                );
+                if (AplicarDanoPorProyectil(
+                        hitboxProyectil, hitboxZombie, ref zombieActivo, ref vidaZombie,
+                        ref tiempoAparicionZombie, 1, 3
+                    ) ||
+                    AplicarDanoPorProyectil(
+                        hitboxProyectil, hitboxZombieSal, ref zombieSalvajeActivo,
+                        ref vidaZombieSalvaje, ref tiempoAparicionSalvaje, 5, 9
+                    ) ||
+                    AplicarDanoPorProyectil(
+                        hitboxProyectil, hitboxZombieTank, ref zombieTanqueActivo,
+                        ref vidaZombieTanque, ref tiempoAparicionTanque, 8, 14
+                    ))
+                {
+                    proyectilPistolaActivo = false;
+                }
+            }
 
             // COLISIONES CON LOS ZOMBIES
 
@@ -1554,6 +1604,7 @@ namespace Projectses
                 _spriteBatch.Draw(
                     zombie, posicionZombie, framesZombie[frameZombie], Color.White
                 );
+                DibujarBarraVidaZombie(hitboxZombie, vidaZombie, VidaMaximaZombie);
             }
             if (zombieSalvajeActivo)
             {
@@ -1561,12 +1612,18 @@ namespace Projectses
                     Zombiesas, posicionZombieSal,
                     framesZombieSalvaje[frameZombieSalvaje], Color.White
                 );
+                DibujarBarraVidaZombie(
+                    hitboxZombieSal, vidaZombieSalvaje, VidaMaximaZombieSalvaje
+                );
             }
             if (zombieTanqueActivo)
             {
                 _spriteBatch.Draw(
                     ZombieTank, posicionZombieTank,
                     framesZombieTanque[frameZombieTanque], Color.White
+                );
+                DibujarBarraVidaZombie(
+                    hitboxZombieTank, vidaZombieTanque, VidaMaximaZombieTanque
                 );
             }
 
