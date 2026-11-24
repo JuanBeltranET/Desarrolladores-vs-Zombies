@@ -1,0 +1,4 @@
+-- Sobre el Codigo Monogame
+El Game1.cs es el codigo Monogame en general
+ConexionBD es una conexion de base de datos hacia el monogame
+Los otros son clases que los dividí del Game1.cs para que el codigo no sea extenso y llamarlas con su clase, haciendo que el codigo Game1.cs sea corto
