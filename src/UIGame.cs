@@ -16,7 +16,6 @@ namespace Project2
         private Texture2D botonJugar;
         private Texture2D exitGame;
         private Texture2D opciones;
-        private Texture2D gameover;
         private Texture2D overlay;
 
         // Texturas del menu de niveles
@@ -56,7 +55,6 @@ namespace Project2
             Texture2D botonJugar,
             Texture2D exitGame,
             Texture2D opciones,
-            Texture2D gameover,
             Texture2D overlay,
             Texture2D nivel1,
             Texture2D nivel2,
@@ -87,7 +85,6 @@ namespace Project2
             this.botonJugar = botonJugar;
             this.exitGame = exitGame;
             this.opciones = opciones;
-            this.gameover = gameover;
             this.overlay = overlay;
 
             this.nivel1 = nivel1;
@@ -533,39 +530,108 @@ namespace Project2
         }
 
         // PANTALLA DE DERROTA
-        public void DibujarDerrota()
+        public void DibujarDerrota(
+            int puntaje,
+            int zombiesEliminadosTotal,
+            int zombiesNormales,
+            int zombiesSalvajes,
+            int zombiesTanque)
         {
             graphicsDevice.Clear(Color.Black);
 
             spriteBatch.Begin();
 
-            int anchoGameOver = Math.Min(
-                gameover.Width,
-                graphicsDevice.Viewport.Width
-            );
-
-            int altoGameOver = gameover.Height
-                * anchoGameOver / gameover.Width;
-
-            spriteBatch.Draw(
-                gameover,
-                new Rectangle(
-                    (graphicsDevice.Viewport.Width - anchoGameOver) / 2,
-                    (graphicsDevice.Viewport.Height - altoGameOver) / 2,
-                    anchoGameOver,
-                    altoGameOver
-                ),
-                Color.White
-            );
-
-            string textoGameOver = "perdiste we intentalo otra vez";
-
+            const string textoGameOver = "Moriste!";
+            Vector2 medidaTitulo = TipoLetra.MeasureString(textoGameOver) * 2f;
             spriteBatch.DrawString(
                 TipoLetra,
                 textoGameOver,
                 new Vector2(
-                    20,
-                    graphicsDevice.Viewport.Height - 40
+                    (graphicsDevice.Viewport.Width - medidaTitulo.X) / 2f,
+                    35f
+                ),
+                Color.White,
+                0f,
+                Vector2.Zero,
+                2f,
+                SpriteEffects.None,
+                0f
+            );
+
+            const int margenTabla = 32;
+            const int separacionLineas = 8;
+            float altoLinea = TipoLetra.LineSpacing + separacionLineas;
+            Vector2 posicionTabla = new Vector2(margenTabla, 115f);
+
+            spriteBatch.DrawString(
+                TipoLetra,
+                "Zombies eliminados",
+                posicionTabla,
+                Color.White
+            );
+            spriteBatch.DrawString(
+                TipoLetra,
+                $"Total: {zombiesEliminadosTotal:N0}",
+                posicionTabla + new Vector2(0, altoLinea),
+                Color.White
+            );
+            spriteBatch.DrawString(
+                TipoLetra,
+                $"Normales: {zombiesNormales:N0}",
+                posicionTabla + new Vector2(0, altoLinea * 2),
+                Color.White
+            );
+            spriteBatch.DrawString(
+                TipoLetra,
+                $"Salvajes: {zombiesSalvajes:N0}",
+                posicionTabla + new Vector2(0, altoLinea * 3),
+                Color.White
+            );
+            spriteBatch.DrawString(
+                TipoLetra,
+                $"Tanques: {zombiesTanque:N0}",
+                posicionTabla + new Vector2(0, altoLinea * 4),
+                Color.White
+            );
+
+            const string textoPuntaje = "Puntaje final";
+            string valorPuntaje = puntaje.ToString("N0");
+            Vector2 medidaPuntaje = TipoLetra.MeasureString(textoPuntaje);
+            Vector2 medidaValorPuntaje = TipoLetra.MeasureString(valorPuntaje) * 1.5f;
+            float centroY = graphicsDevice.Viewport.Height / 2f;
+            spriteBatch.DrawString(
+                TipoLetra,
+                textoPuntaje,
+                new Vector2(
+                    (graphicsDevice.Viewport.Width - medidaPuntaje.X) / 2f,
+                    centroY - TipoLetra.LineSpacing
+                ),
+                Color.White
+            );
+            spriteBatch.DrawString(
+                TipoLetra,
+                valorPuntaje,
+                new Vector2(
+                    (graphicsDevice.Viewport.Width - medidaValorPuntaje.X) / 2f,
+                    centroY + 4f
+                ),
+                Color.Gold,
+                0f,
+                Vector2.Zero,
+                1.5f,
+                SpriteEffects.None,
+                0f
+            );
+
+            ObtenerRectanguloVolverAlMenu(out Rectangle rectVolverMenu);
+            spriteBatch.Draw(overlay, rectVolverMenu, Color.DarkSlateGray);
+            Vector2 medidaBoton = TipoLetra.MeasureString("Volver al menu");
+            spriteBatch.DrawString(
+                TipoLetra,
+                "Volver al menu",
+                new Vector2(
+                    rectVolverMenu.Center.X - medidaBoton.X / 2f,
+                    rectVolverMenu.Center.Y - medidaBoton.Y / 2f
                 ),
                 Color.White
             );
@@ -573,9 +639,25 @@ namespace Project2
             spriteBatch.End();
         }
 
+        public void ObtenerRectanguloVolverAlMenu(out Rectangle rectVolverMenu)
+        {
+            const int margenBoton = 32;
+            const int altoBoton = 64;
+            int anchoBoton = (int)Math.Ceiling(
+                TipoLetra.MeasureString("Volver al menu").X
+            ) + margenBoton;
+
+            rectVolverMenu = new Rectangle(
+                (graphicsDevice.Viewport.Width - anchoBoton) / 2,
+                graphicsDevice.Viewport.Height - altoBoton - 32,
+                anchoBoton,
+                altoBoton
+            );
+        }
+
         // PANTALLA DE VICTORIA
         // Este metodo se ejecuta dentro del Begin y End del juego.
-        public void DibujarVictoria()
+        public void DibujarVictoria(int puntaje)
         {
             spriteBatch.Draw(
                 overlay,
@@ -587,11 +669,12 @@ namespace Project2
                 Color.Black * 0.7f
             );
 
-            const string textoVictoria = "Ganaste!";
-            const float escalaVictoria = 3f;
+            const string textoVictoria = "Oleada completada!";
+            const float escalaVictoria = 2.2f;
 
             Vector2 medidaVictoria =
                 TipoLetra.MeasureString(textoVictoria) * escalaVictoria;
+            Vector2 medidaPuntaje = TipoLetra.MeasureString($"Puntaje: {puntaje:N0}");
 
             spriteBatch.DrawString(
                 TipoLetra,
@@ -604,6 +687,73 @@ namespace Project2
                 0f,
                 Vector2.Zero,
                 escalaVictoria,
+                SpriteEffects.None,
+                0f
+            );
+
+            spriteBatch.DrawString(
+                TipoLetra,
+                $"Puntaje: {puntaje:N0}",
+                new Vector2(
+                    (graphicsDevice.Viewport.Width - medidaPuntaje.X) / 2f,
+                    graphicsDevice.Viewport.Height / 2f + 25f
+                ),
+                Color.White
+            );
+
+            ObtenerRectangulosBotonesVictoria(
+                out Rectangle rectVolver,
+                out Rectangle rectContinuar
+            );
+
+            spriteBatch.Draw(overlay, rectVolver, Color.DarkSlateGray * 0.95f);
+            spriteBatch.Draw(overlay, rectContinuar, Color.DarkSlateGray * 0.95f);
+            DibujarTextoCentrado("Volver", rectVolver);
+            DibujarTextoCentrado("Continuar la partida", rectContinuar);
+        }
+
+        public void ObtenerRectangulosBotonesVictoria(
+            out Rectangle rectVolver,
+            out Rectangle rectContinuar)
+        {
+            const int margenBoton = 32;
+            const int separacion = 20;
+            const int altoBoton = 64;
+            const float escalaTexto = 1.1f;
+
+            int anchoVolver = (int)Math.Ceiling(TipoLetra.MeasureString("Volver").X * escalaTexto)
+                + margenBoton;
+            int anchoContinuar = (int)Math.Ceiling(
+                TipoLetra.MeasureString("Continuar la partida").X * escalaTexto
+            ) + margenBoton;
+            int anchoTotal = anchoVolver + separacion + anchoContinuar;
+            int xInicial = (graphicsDevice.Viewport.Width - anchoTotal) / 2;
+            int y = graphicsDevice.Viewport.Height / 2 + 95;
+
+            rectVolver = new Rectangle(xInicial, y, anchoVolver, altoBoton);
+            rectContinuar = new Rectangle(
+                xInicial + anchoVolver + separacion,
+                y,
+                anchoContinuar,
+                altoBoton
+            );
+        }
+
+        private void DibujarTextoCentrado(string texto, Rectangle destino)
+        {
+            const float escalaTexto = 1.1f;
+            Vector2 medida = TipoLetra.MeasureString(texto) * escalaTexto;
+            spriteBatch.DrawString(
+                TipoLetra,
+                texto,
+                new Vector2(
+                    destino.Center.X - medida.X / 2f,
+                    destino.Center.Y - medida.Y / 2f
+                ),
+                Color.White,
+                0f,
+                Vector2.Zero,
+                escalaTexto,
                 SpriteEffects.None,
                 0f
             );

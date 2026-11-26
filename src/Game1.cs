@@ -21,7 +21,6 @@ namespace Project2
         private Texture2D Zombiesas;//00a0f8
         private Texture2D ZombieTank;
         private ZombieSpawn zombieSpawn;
-        private Texture2D gameover;
         private Texture2D Items;
         private Texture2D boost;
         private Texture2D boostatk;
@@ -72,6 +71,13 @@ namespace Project2
         bool nivelDosSeleccionado;
         private bool aguaNivelDosActiva;
         private bool juegoPausado;
+        private readonly Random randomBoost = new Random();
+        private bool boostDisponible;
+        private Rectangle hitboxBoost;
+        private float tiempoHastaBoost;
+        private float tiempoBoostActivo;
+        private float tiempoAcumuladoPuntaje;
+        private int puntajeTiempo;
 
         // Control del mouse
         MouseState mouseAnterior;
@@ -81,7 +87,6 @@ namespace Project2
 
         // HITBOXES
         Rectangle hitboxJugador;
-        Rectangle hitboxItem = new Rectangle(550, 75, 64, 64);
         Rectangle hitboxAgua = new Rectangle(199, 203, 580, 150);
 
         // Limites del pasto
@@ -91,11 +96,6 @@ namespace Project2
         Vector2 posicionFiolina = new Vector2(220, 100);
         float velocidadFiolina = 150f;
 
-        //posicion Item
-        Vector2 posicionItem = new Vector2(550, 75);
-
-
-        private float tiempoVictoriaRestante = 5f;
         // Estado de movimiento
         bool moviendo = false;
 
@@ -144,7 +144,6 @@ namespace Project2
             nivel1texto = Content.Load<Texture2D>("imagenes/nivel1texto");
             nivel2texto = Content.Load<Texture2D>("imagenes/nivel2texto");
             pool = Content.Load<Texture2D>("imagenes/pool");
-            gameover = Content.Load<Texture2D>("imagenes/GameOver");
             // CARGAR IMAGENES DEL MENU
             fondoMenu = Content.Load<Texture2D>("imagenes/FondoMenu");
             logo = Content.Load<Texture2D>("imagenes/logo");
@@ -188,18 +187,18 @@ namespace Project2
                 superviviente,
                 Content.Load<Texture2D>("imagenes/HealthBar"),
                 Content.Load<Texture2D>("imagenes/StaminaMeter"),
-                Items,
                 panelInventario,
                 spriteManzana,
                 spriteEspada,
                 pistola,
-                debugTexture
+                debugTexture,
+                TipoLetra
             );
 
             // Crear la UI después de cargar todos los recursos que recibe.
             uiGame = new UIGame(
                 GraphicsDevice, _spriteBatch,
-                fondoMenu, logo, botonJugar, exitGame, opciones, gameover,
+                fondoMenu, logo, botonJugar, exitGame, opciones,
                 texturaOverlayPausa, nivel1, nivel2, nivel1texto, nivel2texto,
                 Items, boost, boostatk, tecladoZ, tecladoX, tecladoC, teclado1,
                 teclado2, tecladoEspacio, correr, inventario, atacar, arma, comer,
@@ -212,6 +211,13 @@ namespace Project2
         {
             posicionFiolina = new Vector2(220, 100);
 
+            boostDisponible = false;
+            hitboxBoost = Rectangle.Empty;
+            tiempoHastaBoost = randomBoost.Next(5, 16);
+            tiempoBoostActivo = 0f;
+            tiempoAcumuladoPuntaje = 0f;
+            puntajeTiempo = 0;
+
             zombieSpawn.Reset();
 
             hitboxJugador = new Rectangle(220, 100, 30, 45);
@@ -220,13 +226,43 @@ namespace Project2
             juegoBase.Reiniciar();
             slowfiolina = false;
             juegoPausado = false;
-            tiempoVictoriaRestante = 5f;
+        }
+
+        private void ActualizarBoost(float tiempo)
+        {
+            tiempoBoostActivo = Math.Max(0f, tiempoBoostActivo - tiempo);
+
+            if (!boostDisponible)
+            {
+                tiempoHastaBoost -= tiempo;
+                if (tiempoHastaBoost <= 0f)
+                {
+                    const int tamanoBoost = 48;
+                    int xMaximo = limitesPasto.Right - tamanoBoost;
+                    int yMaximo = limitesPasto.Bottom - tamanoBoost;
+                    int x = randomBoost.Next(limitesPasto.Left, xMaximo + 1);
+                    int y = randomBoost.Next(limitesPasto.Top, yMaximo + 1);
+                    hitboxBoost = new Rectangle(x, y, tamanoBoost, tamanoBoost);
+                    boostDisponible = true;
+                }
+
+                return;
+            }
+
+            if (hitboxJugador.Intersects(hitboxBoost))
+            {
+                boostDisponible = false;
+                hitboxBoost = Rectangle.Empty;
+                tiempoBoostActivo = 15f;
+                tiempoHastaBoost = 45f;
+            }
         }
 
         private void IniciarJuego(bool usarFondoPool)
         {
             nivelDosSeleccionado = usarFondoPool;
             aguaNivelDosActiva = usarFondoPool;
+            zombieSpawn.MultiplicadorPuntaje = usarFondoPool ? 1.5f : 1f;
             estadoActual = EstadoJuego.Jugando;
             MediaPlayer.IsRepeating = true;
             MediaPlayer.Play(nivelDosSeleccionado ? musicaNivelDos : backgroundMusic);
@@ -265,19 +301,49 @@ namespace Project2
                 Exit();
             }
 
-            // Al ganar, muestra la pantalla de victoria durante cinco segundos.
-            if (estadoActual == EstadoJuego.Jugando && zombieSpawn.PartidaGanada)
-            {
-                tiempoVictoriaRestante -= (float)gameTime.ElapsedGameTime.TotalSeconds;
+            bool clicNuevo = mouseActual.LeftButton == ButtonState.Pressed &&
+                mouseAnterior.LeftButton == ButtonState.Released;
 
-                if (tiempoVictoriaRestante <= 0f)
+            // La pantalla de derrota solo permite volver al menu.
+            if (juegoBase.Vida <= 0)
+            {
+                uiGame.ObtenerRectanguloVolverAlMenu(out Rectangle rectVolverMenu);
+                bool volverConTeclado = teclado.IsKeyDown(Keys.Back) &&
+                    tecladoAnterior.IsKeyUp(Keys.Back);
+
+                if (volverConTeclado ||
+                    clicNuevo && rectVolverMenu.Contains(mouseActual.Position))
                 {
                     estadoActual = EstadoJuego.Menu;
-
                     MediaPlayer.IsRepeating = false;
                     MediaPlayer.Play(MusicaMenu);
-
                     ReiniciarPosiciones();
+                }
+
+                mouseAnterior = mouseActual;
+                tecladoAnterior = teclado;
+                base.Update(gameTime);
+                return;
+            }
+
+            // Espera la elección del jugador en la pantalla de victoria.
+            if (estadoActual == EstadoJuego.Jugando && zombieSpawn.PartidaGanada)
+            {
+                uiGame.ObtenerRectangulosBotonesVictoria(
+                    out Rectangle rectVolver,
+                    out Rectangle rectContinuar
+                );
+
+                if (clicNuevo && rectVolver.Contains(mouseActual.Position))
+                {
+                    estadoActual = EstadoJuego.Menu;
+                    MediaPlayer.IsRepeating = false;
+                    MediaPlayer.Play(MusicaMenu);
+                    ReiniciarPosiciones();
+                }
+                else if (clicNuevo && rectContinuar.Contains(mouseActual.Position))
+                {
+                    zombieSpawn.ContinuarPartida();
                 }
 
                 mouseAnterior = mouseActual;
@@ -286,9 +352,6 @@ namespace Project2
                 base.Update(gameTime);
                 return;
             }
-
-            bool clicNuevo = mouseActual.LeftButton == ButtonState.Pressed &&
-                mouseAnterior.LeftButton == ButtonState.Released;
 
             // Los menús gestionan aquí únicamente la entrada; se dibujan en Draw.
             if (estadoActual == EstadoJuego.Menu)
@@ -418,6 +481,13 @@ namespace Project2
                 return;
             }
 
+            tiempoAcumuladoPuntaje += tiempo;
+            while (tiempoAcumuladoPuntaje >= 1f)
+            {
+                puntajeTiempo += 100;
+                tiempoAcumuladoPuntaje -= 1f;
+            }
+
             // MOVIMIENTO DEL JUEGO
             moviendo = false;
             juegoBase.ActualizarOrientacionHorizontal(
@@ -524,6 +594,9 @@ namespace Project2
                 45
             );
 
+            ActualizarBoost(tiempo);
+            int multiplicadorDano = tiempoBoostActivo > 0f ? 2 : 1;
+
             if (aguaNivelDosActiva)
             {
                 hitboxAgua = ObtenerRectanguloAguaNivelDos();
@@ -531,11 +604,14 @@ namespace Project2
 
             zombieSpawn.Update(tiempo, posicionFiolina, hitboxAgua, aguaNivelDosActiva);
 
-            juegoBase.AplicarColisionesProyectiles(zombieSpawn.AplicarDanoPorProyectil);
+            juegoBase.AplicarColisionesProyectiles(
+                hitbox => zombieSpawn.AplicarDanoPorProyectil(hitbox, multiplicadorDano)
+            );
             if (ataqueEspadaIniciado)
             {
                 zombieSpawn.AplicarDanoPorEspada(
-                    juegoBase.ObtenerHitboxAtaqueEspada(posicionFiolina)
+                    juegoBase.ObtenerHitboxAtaqueEspada(posicionFiolina),
+                    multiplicadorDano
                 );
             }
 
@@ -565,7 +641,13 @@ namespace Project2
             // Dibuja la pantalla de derrota de forma independiente para que ningún sprite la tape.
             if (juegoBase.Vida <= 0)
             {
-                uiGame.DibujarDerrota();
+                uiGame.DibujarDerrota(
+                    zombieSpawn.Puntaje + puntajeTiempo,
+                    zombieSpawn.ZombiesEliminadosTotal,
+                    zombieSpawn.ZombiesNormalesEliminados,
+                    zombieSpawn.ZombiesSalvajesEliminados,
+                    zombieSpawn.ZombiesTanqueEliminados
+                );
                 base.Draw(gameTime);
                 return;
             }
@@ -634,14 +716,78 @@ namespace Project2
                 );
             }
 
-            // Dibujar el icono del objeto antes de los personajes para que no los tape.
-            juegoBase.DibujarObjetoSuelo(posicionItem);
+            if (boostDisponible)
+            {
+                _spriteBatch.Draw(Items, hitboxBoost, Color.White);
+            }
 
             // FIOLINA
             juegoBase.DibujarFiolina(posicionFiolina, moviendo);
 
             zombieSpawn.Draw(_spriteBatch);
             juegoBase.DibujarInterfaz(posicionFiolina);
+
+            string textoPuntaje = $"Puntaje: {zombieSpawn.Puntaje:N0}";
+            string textoPuntajeTiempo = $"Puntaje de tiempo: {puntajeTiempo:N0}";
+            string textoBoost = tiempoBoostActivo > 0f
+                ? $"Boost x2: {Math.Ceiling(tiempoBoostActivo):0}s"
+                : string.Empty;
+
+            float anchoTextoPanel = Math.Max(
+                TipoLetra.MeasureString(textoPuntaje).X,
+                TipoLetra.MeasureString(textoPuntajeTiempo).X
+            );
+            if (!string.IsNullOrEmpty(textoBoost))
+            {
+                anchoTextoPanel = Math.Max(
+                    anchoTextoPanel,
+                    TipoLetra.MeasureString(textoBoost).X
+                );
+            }
+
+            const int margenPanelX = 10;
+            const int margenPanelY = 8;
+            const int separacionLineasPanel = 6;
+            int cantidadLineasPanel = string.IsNullOrEmpty(textoBoost) ? 2 : 3;
+            int altoPanel = margenPanelY * 2
+                + cantidadLineasPanel * TipoLetra.LineSpacing
+                + (cantidadLineasPanel - 1) * separacionLineasPanel;
+            _spriteBatch.Draw(
+                texturaOverlayPausa,
+                new Rectangle(
+                    10,
+                    90,
+                    (int)Math.Ceiling(anchoTextoPanel) + margenPanelX * 2,
+                    altoPanel
+                ),
+                Color.Black
+            );
+
+            float yTextoPanel = 98f;
+            _spriteBatch.DrawString(
+                TipoLetra,
+                textoPuntaje,
+                new Vector2(20, yTextoPanel),
+                Color.White
+            );
+            yTextoPanel += TipoLetra.LineSpacing + separacionLineasPanel;
+            _spriteBatch.DrawString(
+                TipoLetra,
+                textoPuntajeTiempo,
+                new Vector2(20, yTextoPanel),
+                Color.White
+            );
+
+            if (!string.IsNullOrEmpty(textoBoost))
+            {
+                yTextoPanel += TipoLetra.LineSpacing + separacionLineasPanel;
+                _spriteBatch.DrawString(
+                    TipoLetra,
+                    textoBoost,
+                    new Vector2(20, yTextoPanel),
+                    Color.Gold
+                );
+            }
 
             if (juegoPausado)
             {
@@ -671,7 +817,7 @@ namespace Project2
 
             if (zombieSpawn.PartidaGanada)
             {
-                uiGame.DibujarVictoria();
+                uiGame.DibujarVictoria(zombieSpawn.Puntaje + puntajeTiempo);
             }
 
             _spriteBatch.End();

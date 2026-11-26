@@ -20,19 +20,20 @@ namespace Project2
         private const float VelocidadProyectilPistola = 500f;
         private const int TamanoIconoInventario = 32;
         private const int UmbralAnimacionMs = 100;
+        private const float TiempoRecargaManzana = 30f;
 
         private readonly GraphicsDevice _graphicsDevice;
         private readonly SpriteBatch _spriteBatch;
         private readonly Texture2D _spriteFiolina;
         private readonly Texture2D _barraVida;
         private readonly Texture2D _barraStamina;
-        private readonly Texture2D _objetoSuelo;
         private readonly Texture2D _panelInventario;
         private readonly Texture2D _spriteManzana;
         private readonly Texture2D _spriteEspada;
         private readonly Texture2D _pistola;
         private readonly Texture2D _proyectilPistola;
         private readonly Texture2D _debugTexture;
+        private readonly SpriteFont _tipoLetra;
         private readonly Rectangle[] _fotogramasMovimiento;
         private readonly Rectangle _fotogramaQuieto = new Rectangle(71, 3, 29, 50);
         private readonly List<(Vector2 Posicion, int Direccion)> _proyectiles =
@@ -42,6 +43,7 @@ namespace Project2
         private float _tiempoAtaqueEspada;
         private float _enfriamientoAtaqueEspada;
         private float _tiempoHastaDisparo;
+        private float _tiempoRecargaManzana;
         private float _tiempoAnimacion;
         private int _fotogramaActual;
         private bool _recuperandoStamina;
@@ -59,24 +61,24 @@ namespace Project2
             Texture2D spriteFiolina,
             Texture2D barraVida,
             Texture2D barraStamina,
-            Texture2D objetoSuelo,
             Texture2D panelInventario,
             Texture2D spriteManzana,
             Texture2D spriteEspada,
             Texture2D pistola,
-            Texture2D debugTexture)
+            Texture2D debugTexture,
+            SpriteFont tipoLetra)
         {
             _graphicsDevice = graphicsDevice;
             _spriteBatch = spriteBatch;
             _spriteFiolina = spriteFiolina;
             _barraVida = barraVida;
             _barraStamina = barraStamina;
-            _objetoSuelo = objetoSuelo;
             _panelInventario = panelInventario;
             _spriteManzana = spriteManzana;
             _spriteEspada = spriteEspada;
             _pistola = pistola;
             _debugTexture = debugTexture;
+            _tipoLetra = tipoLetra;
             _proyectilPistola = CrearTexturaProyectil(graphicsDevice);
 
             _fotogramasMovimiento = new[]
@@ -106,6 +108,7 @@ namespace Project2
             _tiempoAtaqueEspada = 0f;
             _enfriamientoAtaqueEspada = 0f;
             _tiempoHastaDisparo = 0f;
+            _tiempoRecargaManzana = 0f;
             _tiempoAnimacion = 0f;
             _fotogramaActual = 0;
             _miraIzquierda = false;
@@ -161,11 +164,20 @@ namespace Project2
             int anchoPantalla)
         {
             _enfriamientoAtaqueEspada = Math.Max(0f, _enfriamientoAtaqueEspada - tiempo);
+            _tiempoRecargaManzana = Math.Max(0f, _tiempoRecargaManzana - tiempo);
             bool ataqueEspadaIniciado = false;
 
             if (teclado.IsKeyDown(Keys.X) && tecladoAnterior.IsKeyUp(Keys.X))
             {
                 _inventarioVisible = !_inventarioVisible;
+            }
+
+            if (_inventarioVisible &&
+                teclado.IsKeyDown(Keys.Space) && tecladoAnterior.IsKeyUp(Keys.Space) &&
+                _tiempoRecargaManzana <= 0f && Vida < VidaMaxima)
+            {
+                Vida = Math.Min(VidaMaxima, Vida + 1);
+                _tiempoRecargaManzana = TiempoRecargaManzana;
             }
 
             if (_inventarioVisible && teclado.IsKeyDown(Keys.D1) && tecladoAnterior.IsKeyUp(Keys.D1))
@@ -226,10 +238,10 @@ namespace Project2
         public Rectangle ObtenerHitboxAtaqueEspada(Vector2 posicionFiolina)
         {
             return new Rectangle(
-                (int)posicionFiolina.X + (_miraIzquierda ? -34 : 30),
-                (int)posicionFiolina.Y + 10,
-                34,
-                32
+                (int)posicionFiolina.X + (_miraIzquierda ? -45 : 20),
+                (int)posicionFiolina.Y - 8,
+                65,
+                64
             );
         }
 
@@ -261,15 +273,6 @@ namespace Project2
                 _fotogramaActual = (_fotogramaActual + 1) % _fotogramasMovimiento.Length;
                 _tiempoAnimacion = 0f;
             }
-        }
-
-        public void DibujarObjetoSuelo(Vector2 posicion)
-        {
-            _spriteBatch.Draw(
-                _objetoSuelo,
-                new Rectangle((int)posicion.X, (int)posicion.Y, 64, 64),
-                Color.White
-            );
         }
 
         public void DibujarFiolina(Vector2 posicion, bool moviendo)
@@ -305,11 +308,16 @@ namespace Project2
             }
 
             Rectangle origenVida = new Rectangle(0, 0, 48, 45);
+            const int anchoVida = 72;
+            const int separacionVidas = 64;
+            int anchoTotalVidas = anchoVida + (VidaMaxima - 1) * separacionVidas;
+            int xInicialVidas = (_graphicsDevice.Viewport.Width - anchoTotalVidas) / 2;
+
             for (int i = 0; i < VidaMaxima; i++)
             {
                 _spriteBatch.Draw(
                     _barraVida,
-                    new Rectangle(100 + i * 76, 50, 72, 68),
+                    new Rectangle(xInicialVidas + i * separacionVidas, 12, anchoVida, 68),
                     origenVida,
                     i < Vida ? Color.White : Color.Black
                 );
@@ -367,12 +375,7 @@ namespace Project2
 
             if (_ataqueEspadaActivo)
             {
-                Rectangle hitboxEspada = new Rectangle(
-                    (int)posicionFiolina.X + (_miraIzquierda ? -28 : 28),
-                    (int)posicionFiolina.Y + 12,
-                    28,
-                    28
-                );
+                Rectangle hitboxEspada = ObtenerHitboxAtaqueEspada(posicionFiolina);
                 _spriteBatch.Draw(_debugTexture, hitboxEspada, Color.Red * 0.45f);
             }
         }
@@ -397,7 +400,25 @@ namespace Project2
                 }
                 else if (i == 1)
                 {
-                    _spriteBatch.Draw(_spriteManzana, destino, Color.White);
+                    Color colorManzana = _tiempoRecargaManzana > 0f
+                        ? Color.Black * 0.65f
+                        : Color.White;
+                    _spriteBatch.Draw(_spriteManzana, destino, colorManzana);
+
+                    if (_tiempoRecargaManzana > 0f)
+                    {
+                        string cuentaAtras = Math.Ceiling(_tiempoRecargaManzana).ToString("0");
+                        Vector2 medidaCuentaAtras = _tipoLetra.MeasureString(cuentaAtras);
+                        _spriteBatch.DrawString(
+                            _tipoLetra,
+                            cuentaAtras,
+                            new Vector2(
+                                destino.Center.X - medidaCuentaAtras.X / 2f,
+                                destino.Center.Y - medidaCuentaAtras.Y / 2f
+                            ),
+                            Color.White
+                        );
+                    }
                 }
                 else
                 {

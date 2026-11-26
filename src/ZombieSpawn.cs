@@ -8,6 +8,13 @@ namespace Project2
 {
     public sealed class ZombieSpawn
     {
+        private enum TipoZombie
+        {
+            Normal,
+            Salvaje,
+            Tanque
+        }
+
         private sealed class ZombieInstancia
         {
             public Vector2 Posicion;
@@ -41,6 +48,9 @@ namespace Project2
         private const int IntervaloMaximoSalvaje = 14;
         private const int IntervaloMinimoTanque = 16;
         private const int IntervaloMaximoTanque = 22;
+        private const float IntervaloOleadaInfinita = 75f;
+        private const int ZombiesSalvajesOleadaInfinita = 3;
+        private const int ZombiesTanqueOleadaInfinita = 4;
         private const float DuracionFrameZombie = 0.12f;
 
         private readonly GraphicsDevice graphicsDevice;
@@ -60,11 +70,14 @@ namespace Project2
         private float tiempoAparicionZombie;
         private float tiempoAparicionSalvaje;
         private float tiempoAparicionTanque;
+        private float tiempoHastaOleadaInfinita;
         private int zombiesEliminadosFase;
         private int zombiesOleadaRestantes;
         private int zombiesAparecidosPorPartida;
         private bool oleadaEspecialActiva;
+        private bool oleadaEspecialPendiente;
         private bool partidaGanada;
+        private bool continuacionActiva;
         private bool zombieNormalEnAgua;
         private bool zombieSalvajeEnAgua;
         private readonly Dictionary<ZombieInstancia, float> velocidadOriginal = new Dictionary<ZombieInstancia, float>();
@@ -72,6 +85,13 @@ namespace Project2
         public bool ZombieNormalEnAgua => zombieNormalEnAgua;
         public bool ZombieSalvajeEnAgua => zombieSalvajeEnAgua;
         public bool PartidaGanada => partidaGanada;
+        public int Puntaje { get; private set; }
+        public float MultiplicadorPuntaje { get; set; } = 1f;
+        public int ZombiesNormalesEliminados { get; private set; }
+        public int ZombiesSalvajesEliminados { get; private set; }
+        public int ZombiesTanqueEliminados { get; private set; }
+        public int ZombiesEliminadosTotal =>
+            ZombiesNormalesEliminados + ZombiesSalvajesEliminados + ZombiesTanqueEliminados;
 
         public ZombieSpawn(
             GraphicsDevice graphicsDevice,
@@ -108,31 +128,76 @@ namespace Project2
             zombiesOleadaRestantes = 0;
             zombiesAparecidosPorPartida = 0;
             oleadaEspecialActiva = false;
+            oleadaEspecialPendiente = false;
             partidaGanada = false;
+            continuacionActiva = false;
+            Puntaje = 0;
+            ZombiesNormalesEliminados = 0;
+            ZombiesSalvajesEliminados = 0;
+            ZombiesTanqueEliminados = 0;
             zombieNormalEnAgua = false;
             zombieSalvajeEnAgua = false;
             velocidadOriginal.Clear();
             tiempoAparicionZombie = TiempoHastaProximaAparicion(0, 1);
             tiempoAparicionSalvaje = TiempoHastaProximaAparicion(8, 12);
             tiempoAparicionTanque = TiempoHastaProximaAparicion(14, 18);
+            tiempoHastaOleadaInfinita = 0f;
+        }
+
+        public void ContinuarPartida()
+        {
+            partidaGanada = false;
+            oleadaEspecialActiva = false;
+            oleadaEspecialPendiente = false;
+            zombiesOleadaRestantes = 0;
+            zombiesEliminadosFase = 0;
+            zombiesAparecidosPorPartida = 0;
+            zombiesNormales.Clear();
+            zombiesSalvajes.Clear();
+            zombiesTanque.Clear();
+            velocidadOriginal.Clear();
+
+            continuacionActiva = true;
+            IniciarOleadaInfinita();
+            tiempoHastaOleadaInfinita = IntervaloOleadaInfinita;
+
+            tiempoAparicionSalvaje = TiempoHastaProximaAparicion(3, 5);
+            tiempoAparicionTanque = TiempoHastaProximaAparicion(20, 28);
         }
 
         public void Update(float tiempo, Vector2 posicionJugador, Rectangle hitboxAgua, bool aguaActiva)
         {
-            ActualizarAparicionZombie(
-                zombiesNormales, ref tiempoAparicionZombie,
-                VidaMaximaZombie, 35, 50,
-                IntervaloMinimoNormal, IntervaloMaximoNormal, tiempo
-            );
+            if (!continuacionActiva)
+            {
+                ActualizarAparicionZombie(
+                    zombiesNormales, ref tiempoAparicionZombie,
+                    VidaMaximaZombie, 35, 50,
+                    IntervaloMinimoNormal, IntervaloMaximoNormal, tiempo
+                );
+            }
             ActualizarAparicionZombie(
                 zombiesSalvajes, ref tiempoAparicionSalvaje,
                 VidaMaximaZombieSalvaje, 45, 57,
-                IntervaloMinimoSalvaje, IntervaloMaximoSalvaje, tiempo
+                continuacionActiva ? 3 : IntervaloMinimoSalvaje,
+                continuacionActiva ? 5 : IntervaloMaximoSalvaje,
+                tiempo
             );
+
+            if (continuacionActiva)
+            {
+                tiempoHastaOleadaInfinita -= tiempo;
+                if (tiempoHastaOleadaInfinita <= 0f)
+                {
+                    IniciarOleadaInfinita();
+                    tiempoHastaOleadaInfinita = IntervaloOleadaInfinita;
+                }
+            }
             ActualizarAparicionZombie(
                 zombiesTanque, ref tiempoAparicionTanque,
                 VidaMaximaZombieTanque, 35, 57,
-                IntervaloMinimoTanque, IntervaloMaximoTanque, tiempo
+                continuacionActiva ? 20 : IntervaloMinimoTanque,
+                continuacionActiva ? 28 : IntervaloMaximoTanque,
+                tiempo
             );
 
             foreach (ZombieInstancia zombie in zombiesNormales)
@@ -140,6 +205,7 @@ namespace Project2
                 PerseguirJugador(zombie, posicionJugador, velocidadOriginal.TryGetValue(zombie, out float velocidadNormal) ? velocidadNormal : 65f, tiempo);
                 ActualizarAnimacion(zombie, tiempo, framesZombie.Length);
             }
+
             foreach (ZombieInstancia zombie in zombiesSalvajes)
             {
                 PerseguirJugador(zombie, posicionJugador, velocidadOriginal.TryGetValue(zombie, out float velocidadSalvaje) ? velocidadSalvaje : 90f, tiempo);
@@ -159,18 +225,52 @@ namespace Project2
             AjustarVelocidad(zombiesTanque, 35f, false);
         }
 
-        public bool AplicarDanoPorProyectil(Rectangle hitboxProyectil)
+        private void IniciarOleadaInfinita()
         {
-            return AplicarDanoPorProyectil(hitboxProyectil, zombiesNormales) ||
-                AplicarDanoPorProyectil(hitboxProyectil, zombiesSalvajes) ||
-                AplicarDanoPorProyectil(hitboxProyectil, zombiesTanque);
+            for (int i = 0; i < ZombiesSalvajesOleadaInfinita; i++)
+            {
+                zombiesSalvajes.Add(CrearZombie(45, 57, VidaMaximaZombieSalvaje));
+                velocidadOriginal[zombiesSalvajes[zombiesSalvajes.Count - 1]] = 90f;
+            }
+
+            for (int i = 0; i < ZombiesTanqueOleadaInfinita; i++)
+            {
+                zombiesTanque.Add(CrearZombie(35, 57, VidaMaximaZombieTanque));
+                velocidadOriginal[zombiesTanque[zombiesTanque.Count - 1]] = 35f;
+            }
         }
 
-        public bool AplicarDanoPorEspada(Rectangle hitboxEspada)
+        public bool AplicarDanoPorProyectil(Rectangle hitboxProyectil, int multiplicadorDano)
         {
-            return AplicarDanoPorEspada(hitboxEspada, zombiesNormales, 1) ||
-                AplicarDanoPorEspada(hitboxEspada, zombiesSalvajes, 2) ||
-                AplicarDanoPorEspada(hitboxEspada, zombiesTanque, 4);
+            bool golpeAplicado = AplicarDanoPorProyectil(
+                    hitboxProyectil, zombiesNormales, 1000, TipoZombie.Normal, multiplicadorDano
+                ) ||
+                AplicarDanoPorProyectil(
+                    hitboxProyectil, zombiesSalvajes, 2000, TipoZombie.Salvaje, multiplicadorDano
+                ) ||
+                AplicarDanoPorProyectil(
+                    hitboxProyectil, zombiesTanque, 5000, TipoZombie.Tanque, multiplicadorDano
+                );
+
+            ProcesarOleadaEspecialPendiente();
+            return golpeAplicado;
+        }
+
+        public bool AplicarDanoPorEspada(Rectangle hitboxEspada, int multiplicadorDano)
+        {
+            bool golpeAplicado = false;
+            golpeAplicado |= AplicarDanoPorEspada(
+                hitboxEspada, zombiesNormales, 1, 1000, TipoZombie.Normal, multiplicadorDano
+            );
+            golpeAplicado |= AplicarDanoPorEspada(
+                hitboxEspada, zombiesSalvajes, 2, 2000, TipoZombie.Salvaje, multiplicadorDano
+            );
+            golpeAplicado |= AplicarDanoPorEspada(
+                hitboxEspada, zombiesTanque, 4, 5000, TipoZombie.Tanque, multiplicadorDano
+            );
+
+            ProcesarOleadaEspecialPendiente();
+            return golpeAplicado;
         }
 
         public bool IntentarColisionConJugador(Rectangle hitboxJugador, out int dano)
@@ -203,7 +303,8 @@ namespace Project2
             int intervaloMaximo,
             float tiempo)
         {
-            if (oleadaEspecialActiva || zombiesAparecidosPorPartida >= MaxZombiesAparecidosPorPartida)
+            if (oleadaEspecialActiva ||
+                (!continuacionActiva && zombiesAparecidosPorPartida >= MaxZombiesAparecidosPorPartida))
             {
                 return;
             }
@@ -240,6 +341,7 @@ namespace Project2
         private void IniciarOleadaEspecial()
         {
             oleadaEspecialActiva = true;
+            oleadaEspecialPendiente = false;
             zombiesOleadaRestantes = ZombiesSalvajesOleada + ZombiesTanqueOleada;
             zombiesNormales.Clear();
             zombiesSalvajes.Clear();
@@ -280,7 +382,8 @@ namespace Project2
                 return;
             }
 
-            if (!eliminadoPorJugador || oleadaEspecialActiva)
+            if (!eliminadoPorJugador || oleadaEspecialActiva || continuacionActiva ||
+                oleadaEspecialPendiente)
             {
                 return;
             }
@@ -288,11 +391,24 @@ namespace Project2
             zombiesEliminadosFase++;
             if (zombiesEliminadosFase >= MuertesParaOleadaEspecial)
             {
+                oleadaEspecialPendiente = true;
+            }
+        }
+
+        private void ProcesarOleadaEspecialPendiente()
+        {
+            if (oleadaEspecialPendiente)
+            {
                 IniciarOleadaEspecial();
             }
         }
 
-        private bool AplicarDanoPorProyectil(Rectangle hitboxProyectil, List<ZombieInstancia> zombies)
+        private bool AplicarDanoPorProyectil(
+            Rectangle hitboxProyectil,
+            List<ZombieInstancia> zombies,
+            int puntos,
+            TipoZombie tipo,
+            int multiplicadorDano)
         {
             for (int i = zombies.Count - 1; i >= 0; i--)
             {
@@ -302,12 +418,14 @@ namespace Project2
                     continue;
                 }
 
-                zombie.Vida = Math.Max(0, zombie.Vida - 1);
+                zombie.Vida = Math.Max(0, zombie.Vida - Math.Max(1, multiplicadorDano));
                 Debug.WriteLine($"Zombie alcanzado; vida restante: {zombie.Vida}");
                 if (zombie.Vida == 0)
                 {
                     zombies.RemoveAt(i);
                     velocidadOriginal.Remove(zombie);
+                    AgregarPuntaje(puntos);
+                    RegistrarEliminacionPorJugador(tipo);
                     RegistrarZombieEliminado(zombie, true);
                     Debug.WriteLine("Zombie eliminado");
                 }
@@ -320,8 +438,12 @@ namespace Project2
         private bool AplicarDanoPorEspada(
             Rectangle hitboxEspada,
             List<ZombieInstancia> zombies,
-            int golpesNecesarios)
+            int golpesNecesarios,
+            int puntos,
+            TipoZombie tipo,
+            int multiplicadorDano)
         {
+            bool golpeAplicado = false;
             for (int i = zombies.Count - 1; i >= 0; i--)
             {
                 ZombieInstancia zombie = zombies[i];
@@ -330,22 +452,49 @@ namespace Project2
                     continue;
                 }
 
-                zombie.GolpesEspada++;
-                zombie.Vida = Math.Max(0, zombie.Vida - 1);
+                int dano = Math.Max(1, multiplicadorDano);
+                zombie.GolpesEspada += dano;
+                zombie.Vida = Math.Max(0, zombie.Vida - dano);
                 Debug.WriteLine($"Impacto de espada: {zombie.GolpesEspada}/{golpesNecesarios}");
 
                 if (zombie.GolpesEspada >= golpesNecesarios || zombie.Vida == 0)
                 {
                     zombies.RemoveAt(i);
                     velocidadOriginal.Remove(zombie);
+                    AgregarPuntaje(puntos);
+                    RegistrarEliminacionPorJugador(tipo);
                     RegistrarZombieEliminado(zombie, true);
                     Debug.WriteLine("Zombie eliminado por espada");
                 }
 
-                return true;
+                golpeAplicado = true;
             }
 
-            return false;
+            return golpeAplicado;
+        }
+
+        private void AgregarPuntaje(int puntos)
+        {
+            Puntaje += (int)Math.Round(
+                puntos * MultiplicadorPuntaje,
+                MidpointRounding.AwayFromZero
+            );
+        }
+
+        private void RegistrarEliminacionPorJugador(TipoZombie tipo)
+        {
+            switch (tipo)
+            {
+                case TipoZombie.Normal:
+                    ZombiesNormalesEliminados++;
+                    break;
+                case TipoZombie.Salvaje:
+                    ZombiesSalvajesEliminados++;
+                    break;
+                case TipoZombie.Tanque:
+                    ZombiesTanqueEliminados++;
+                    break;
+            }
         }
 
         private bool IntentarColisionConLista(
