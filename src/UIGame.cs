@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
@@ -401,6 +401,15 @@ namespace Project2
                     xAccion, yTeclado,
                     comer.Width * 2,
                     comer.Height * 2
+                ),
+                Color.White
+            );
+
+            spriteBatch.Draw(
+               exitGame,
+                new Vector2(
+                    0,
+                    graphicsDevice.Viewport.Height - exitGame.Height
                 ),
                 Color.White
             );
